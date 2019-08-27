@@ -1,6 +1,6 @@
 # TODO(Callum)
-#   Automate the graph generation scripts
-#     - Automate file import and naming
+#   Streamline graph generation scripts
+#     - Automate file import and naming (no hardcoding)
 
 ##### Load/Install relevant packages #####
 
@@ -14,11 +14,10 @@ GetPackages <- function(required.packages) {
 
 GetPackages(c("ggplot2", "reshape2", "wesanderson", "tidyverse", "scales", "doParallel", "devtools"))
 
-install_github("kassambara/easyGgplot2")
+install_github("kassambara/easyGgplot2")  # Need devtools to use this function
 library(easyGgplot2)
 
 ##### Load relevant data #####
-
 coverage_metrics <- read.table(
   "analysis/20190727_183445/18F-199_S1/default/metrics/*.metrics.targetcoverage")
 
