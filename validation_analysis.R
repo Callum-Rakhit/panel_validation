@@ -22,7 +22,7 @@ coverage_metrics <- read.table(
   "analysis/20190727_183445/18F-199_S1/default/metrics/*.metrics.targetcoverage")
 
 # Identify common zero coverage primers
-zero_coverage_regions_s1 <- read.table("~/outfile_S104", header = T)
+zero_coverage_regions_s1 <- read.table("$HOME/panel_validation/metrics_for_plots/panel_validation/metrics_for_plots", header = T)
 zero_coverage_regions_s2 <- read.table("~/outfile_S204", header = T)
 zero_coverage_regions_s3 <- read.table("~/outfile_S304", header = T)
 zero_coverage_regions_s4 <- read.table("~/outfile_S404", header = T)

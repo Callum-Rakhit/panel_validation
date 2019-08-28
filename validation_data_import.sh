@@ -1,28 +1,62 @@
+# TODO(Callum)
+#   Pipe instead of copying, altering and removing files
+#   Remove hardcoded references to a particular run
+
 ##### Get the coverage metrics #####
 
 # Copy, rename and split the relevant metrics file for each downsampling analysis performed for each sample
-for i in $(ls analysis/20190727_183445/); 
-  do for x in $(ls analysis/20190727_183445/$i); 
-    do cp analysis/20190727_183445/$i/$x/metrics/*.metrics.targ* ./metrics_extraction_for_validation/
-      && for y in analysis/20190727_183445/$i/$x/metrics/*.metrics.targ*;
-        do z=$(basename $y) && a=$(echo $z | cut -c1-8) 
-        && mv ./metrics_extraction_for_validation/$a* ./metrics_extraction_for_validation/${i}_${x}_metrics
-        && csplit --digits=2 --quiet --prefix=./metrics_extraction_for_validation/${i}_${x}_metrics_split ./metrics_extraction_for_validation/${i}_${x}_metrics "/#/+1" "{*}";
-    done;
-  done;
-done
+function aggregate_coverage_files {
+  for i in $(ls $1); do for x in $(ls $1/$i); 
+  do cp $1/$i/$x/metrics/*.metrics.targetcoverage $2 && 
+  for y in $1/$i/$x/metrics/*.metrics.targetcoverage; 
+  do z=$(basename $y) && a=$(echo $z | cut -c1-8) && 
+  mv $2/$a* $2/${i}_${x}_metrics && 
+  sed -n '/# NOT COVERED/,/# LOW COVERAGE (<200X)/ p' $2/${i}_${x}_metrics | head -n -2 > $2/${i}_${x}_zero_coverage && 
+  sed -n '/# LOW COVERAGE (<200X)/,/# PERCENT COVERED/ p' $2/${i}_${x}_metrics | head -n -2 > $2/${i}_${x}_low_coverage && 
+  sed '# PERCENT COVERED/q' $2/${i}_${x}_metrics | head -n -1 > $2/${i}_${x}_coverage_percentages; 
+  done; 
+  done; 
+  done
+  
+}
+
+# Required you to pass the analysis location to it and the output location
+mkdir -p $SNAPPYWORK/metrics_extraction_for_validation
+aggregate_coverage_files $SNAPPYWORK/analysis/20190727_183445/ $SNAPPYWORK/metrics_extraction_for_validation/
+
 
 ##### Get the coverage per primer pair metrics #####
 
-# awk '{print $1, $3}' analysis/20190727_183445/18F-199_S1/default/metrics/63f8c42f.counts.PRIMER > sample_1_primer_barcode_coverage_inc_amplicon
-# awk '{print $1, $3}' analysis/20190727_183445/18F-208_S2/default/metrics/912d7e9c.counts.PRIMER > sample_2_primer_barcode_coverage_inc_amplicon
-# awk '{print $1, $3}' analysis/20190727_183445/18F-181_S3/default/metrics/c5763424.counts.PRIMER > sample_3_primer_barcode_coverage_inc_amplicon
-# awk '{print $1, $3}' analysis/20190727_183445/18F-381_S4/default/metrics/2c132364.counts.PRIMER > sample_4_primer_barcode_coverage_inc_amplicon
+# Copy, rename and split the amplicon coverage metrics file
+function aggregate_amplion_coverage {
+  for i in $(ls $1); do for x in $(ls $1/$i); 
+  do cp $1/$i/$x/metrics/*.counts.PRIMER $2 &&
+  for y in $1/$i/$x/metrics/*.counts.PRIMER;
+  do z=$(basename $y) && a=$(echo $z | cut -c1-8) &&
+  mv $2/$a* $2/${i}_${x}_amplicon_coverage_temp &&
+  awk '{print $1, $3}' $2/${i}_${x}_amplicon_coverage_temp > $2/${i}_${x}_amplicon_coverage;
+  done;
+  done;
+  done
+  
+}
 
-for folder in $(ls folder location); do awk '{print $1, $3}' $file > output; done
+aggregate_amplion_coverage$SNAPPYWORK/analysis/20190727_183445 $SNAPPYWORK/metrics_extraction_for_validation
 
 ##### Get the VAF/variant information  #####
-# bcftools query -f '%CHROM:%POS %AF\n' analysis/20190727_183445/18F-199_S1/default/variants/63f8c42f.VD.filtered.vcf.gz > S1_VAF
-# bcftools query -f '%CHROM:%POS %AF\n' analysis/20190727_183445/18F-208_S2/default/variants/912d7e9c.VD.filtered.vcf.gz > S2_VAF
-# bcftools query -f '%CHROM:%POS %AF\n' analysis/20190727_183445/18F-181_S3/default/variants/c5763424.VD.filtered.vcf.gz > S3_VAF
-# bcftools query -f '%CHROM:%POS %AF\n' analysis/20190727_183445/18F-381_S4/default/variants/2c132364.VD.filtered.vcf.gz > S4_VAF
+
+# Copy, rename and split the amplicon coverage metrics file
+function aggregate_VAF {
+  for i in $(ls $1); do for x in $(ls $1/$i); 
+  do cp $1/$i/$x/variants/*.VD.filtered.vcf.gz $2 &&
+  for y in $1/$i/$x/variants/*.VD.filtered.vcf.gz;
+  do z=$(basename $y) && a=$(echo $z | cut -c1-8) &&
+  mv $2/$a* $2/${i}_${x}_VAF_frequencies_verbose &&
+  bcftools query -f '%CHROM:%POS %AF\n' $2/${i}_${x}_VAF_frequencies_verbose > $2/${i}_${x}_VAF_frequencies_bare;
+  done;
+  done;
+  done
+  
+}
+
+aggregate_VAF $SNAPPYWORK/analysis/20190727_183445 $SNAPPYWORK/metrics_extraction_for_validation
