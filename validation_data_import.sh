@@ -2,6 +2,9 @@
 #   Pipe instead of copying, altering and removing files
 #   Remove hardcoded references to a particular run
 
+# Create a folder to dump the output into
+mkdir -p $SNAPPYWORK/metrics_extraction_for_validation
+
 ##### Get the coverage metrics #####
 
 # Copy, rename and split the relevant metrics file for each downsampling analysis performed for each sample
@@ -11,18 +14,14 @@ function aggregate_coverage_files {
   for y in $1/$i/$x/metrics/*.metrics.targetcoverage; 
   do z=$(basename $y) && a=$(echo $z | cut -c1-8) && 
   mv $2/$a* $2/${i}_${x}_metrics && 
-  sed -n '/# NOT COVERED/,/# LOW COVERAGE (<200X)/ p' $2/${i}_${x}_metrics | head -n -2 > $2/${i}_${x}_zero_coverage && 
-  sed -n '/# LOW COVERAGE (<200X)/,/# PERCENT COVERED/ p' $2/${i}_${x}_metrics | head -n -2 > $2/${i}_${x}_low_coverage && 
-  sed '# PERCENT COVERED/q' $2/${i}_${x}_metrics | head -n -1 > $2/${i}_${x}_coverage_percentages; 
+  sed -n '/# NOT COVERED/,/# LOW COVERAGE (<200X)/ p' $2/${i}_${x}_metrics | head -n -2 | sed '1d' > $2/${i}_${x}_zero_coverage && 
+  sed -n '/# LOW COVERAGE (<200X)/,/# PERCENT COVERED/ p' $2/${i}_${x}_metrics | head -n -2  | sed '1d' > $2/${i}_${x}_low_coverage && 
+  sed -e '1,/# PERCENT COVERED/ d' $2/${i}_${x}_metrics | head -n -1 > $2/${i}_${x}_coverage_percentages;
   done; 
   done; 
   done
   
 }
-
-# Required you to pass the analysis location to it and the output location
-mkdir -p $SNAPPYWORK/metrics_extraction_for_validation
-aggregate_coverage_files $SNAPPYWORK/analysis/20190727_183445/ $SNAPPYWORK/metrics_extraction_for_validation/
 
 
 ##### Get the coverage per primer pair metrics #####
@@ -34,14 +33,13 @@ function aggregate_amplion_coverage {
   for y in $1/$i/$x/metrics/*.counts.PRIMER;
   do z=$(basename $y) && a=$(echo $z | cut -c1-8) &&
   mv $2/$a* $2/${i}_${x}_amplicon_coverage_temp &&
-  awk '{print $1, $3}' $2/${i}_${x}_amplicon_coverage_temp > $2/${i}_${x}_amplicon_coverage;
+  awk '{print $1, $3}' $2/${i}_${x}_amplicon_coverage_temp | sed '1,6d' | head -n -1 > $2/${i}_${x}_amplicon_coverage;
   done;
   done;
   done
   
 }
 
-aggregate_amplion_coverage$SNAPPYWORK/analysis/20190727_183445 $SNAPPYWORK/metrics_extraction_for_validation
 
 ##### Get the VAF/variant information  #####
 
@@ -59,4 +57,19 @@ function aggregate_VAF {
   
 }
 
-aggregate_VAF $SNAPPYWORK/analysis/20190727_183445 $SNAPPYWORK/metrics_extraction_for_validation
+
+# Final function to call all previous functions by iterating for the sample folders
+function make_plots {
+  aggregate_coverage_files $1 $2
+  aggregate_amplion_coverage  $1 $2
+  aggregate_VAF $1 $2
+  # rm *temp* && rm *verbose* && rm *metrics*
+  }
+
+
+make_plots $SNAPPYWORK/analysis/20190727_183445/ $SNAPPYWORK/metrics_extraction_for_validation/
+
+# aggregate_VAF $SNAPPYWORK/analysis/20190727_183445 $SNAPPYWORK/metrics_extraction_for_validation
+# aggregate_amplion_coverage$SNAPPYWORK/analysis/20190727_183445 $SNAPPYWORK/metrics_extraction_for_validation
+# aggregate_coverage_files $SNAPPYWORK/analysis/20190727_183445/ $SNAPPYWORK/metrics_extraction_for_validation/
+

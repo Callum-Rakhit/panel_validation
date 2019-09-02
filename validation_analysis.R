@@ -18,11 +18,33 @@ install_github("kassambara/easyGgplot2")  # Need devtools to use this function
 library(easyGgplot2)
 
 ##### Load relevant data #####
-coverage_metrics <- read.table(
-  "analysis/20190727_183445/18F-199_S1/default/metrics/*.metrics.targetcoverage")
+setwd("$SNAPPYWORK/metrics_extraction_for_validation/")
+
+require(readr)  # for read_csv()
+require(dplyr)  # for mutate()
+require(tidyr)  # for unnest()
+require(purrr)  # for map(), reduce()
+
+# files <- list.files(path = "/home/callum/work/metrics_extraction_for_validation/", pattern = "*zero*")
+Sys.getenv("SNAPPYWORK")
+data_path <- Sys.glob(paths = "/home/callum/work/metrics_extraction_for_validation/*zero*") 
+
+# data_path = "/home/callum/work/metrics_extraction_for_validation/*zero*" # path to the data
+# files <- dir(path = data_path, pattern = "*zero*") # get file names
+# dir(path = data_path, pattern = "*zero")
+
+# Compresses everything into a single dataframe, losing information about which sample the information came from
+data <- files %>%
+  # read in all the files individually
+  purrr::map(read_csv) %>%
+  # reduce into one dataframe
+  purrr::reduce(rbind)        
+
+# read.table(as.character(data), header = T, sep = " ")
 
 # Identify common zero coverage primers
-zero_coverage_regions_s1 <- read.table("$HOME/panel_validation/metrics_for_plots/panel_validation/metrics_for_plots", header = T)
+zero_coverage_regions_s1 <- read.table("$SNAPPYWORK/metrics_extraction_for_validation/18F-181_S3_10M_resample_zero_coverage", header = T)
+zero_coverage_regions_s1 <- read.table("/home/callum/work/metrics_extraction_for_validation/18F-181_S3_10M_resample_zero_coverage", header = T)
 zero_coverage_regions_s2 <- read.table("~/outfile_S204", header = T)
 zero_coverage_regions_s3 <- read.table("~/outfile_S304", header = T)
 zero_coverage_regions_s4 <- read.table("~/outfile_S404", header = T)
