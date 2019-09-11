@@ -20,7 +20,6 @@ function aggregate_coverage_files {
   done; 
   done; 
   done
-  
 }
 
 
@@ -54,7 +53,6 @@ function aggregate_VAF {
   done;
   done;
   done
-  
 }
 
 
@@ -64,10 +62,10 @@ function make_plots {
   aggregate_amplion_coverage  $1 $2
   aggregate_VAF $1 $2
   # rm *temp* && rm *verbose* && rm *metrics*
-  }
+}
 
 
-make_plots $SNAPPYWORK/analysis/20190727_183445/ $SNAPPYWORK/metrics_extraction_for_validation/
+make_plots $SNAPPYWORK/analysis/20190830_235206/ $SNAPPYWORK/metrics_extraction_for_validation/
 
 # aggregate_VAF $SNAPPYWORK/analysis/20190727_183445 $SNAPPYWORK/metrics_extraction_for_validation
 # aggregate_amplion_coverage$SNAPPYWORK/analysis/20190727_183445 $SNAPPYWORK/metrics_extraction_for_validation
