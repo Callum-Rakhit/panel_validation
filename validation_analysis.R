@@ -14,39 +14,143 @@ GetPackages <- function(required.packages) {
   suppressMessages(lapply(required.packages, require, character.only = T))
 }
 
-GetPackages(c("ggplot2", "reshape2", "wesanderson", "tidyverse", "scales", "doParallel", "devtools"))
-
+GetPackages(c("ggplot2", "reshape2", "wesanderson", "tidyverse", "scales", "doParallel", "devtools", "dplyr"))
 install_github("kassambara/easyGgplot2")  # Need devtools to use this function
 library(easyGgplot2)
 
 ##### Load relevant data #####
 
-amplicon_coverage <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*default_amplicon_coverage*")
-amplicon_coverage <- lapply(amplicon_coverage, read.table)
-amplicon_coverage <- do.call(rbind.data.frame, amplicon_coverage)
-amplicon_coverage <- amplicon_coverage[-1,]
-hist(as.numeric(amplicon_coverage$V2)*4)
+# for (i in 1:length(amplicon_coverage_filenames)) {
+#   assign(paste0(basename(amplicon_coverage_filenames[i])), data.frame(amplicon_coverage_list[i]))
+# }
+
+# ROI coverage percentage information
+coverage_percentages_filenames <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*coverage_percentages*")
+coverage_percentage_sample_names <- paste0(basename(coverage_percentages_filenames))
+coverage_percentage_list <- lapply(coverage_percentages_filenames, function(i){read.table(file = i, header = T)})
+coverage_percentage_melted <- do.call(rbind, coverage_percentage_list)
+coverage_percentage_melted$id <- factor(rep(coverage_percentage_sample_names, each = sapply(coverage_percentage_list, nrow)))
+colnames(coverage_percentage_melted) <- c("Amplicon", "1x", "10x", "20x", "40x", "80x", "160x", "200x", "320x", "640x", "sampleID")
+
+hist(as.numeric(coverage_percentage_melted$`320x`)/1000)
+
+# Amplicon/coverage/sample data
+amplicon_coverage_filenames <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*default_amplicon_coverage*")
+amplicon_coverage_sample_names <- paste0(basename(amplicon_coverage_filenames))
+amplicon_coverage_list <- lapply(amplicon_coverage_filenames, function(i){read.table(file = i, header = T)})
+amplicon_coverage_melted <- do.call(rbind, amplicon_coverage_list)
+amplicon_coverage_melted$id <- factor(rep(amplicon_coverage_sample_names, each = sapply(amplicon_coverage_list, nrow)))
+
+##### Pick colours #####
+
+colour_palette <- wesanderson::wes_palettes$Darjeeling1
+
+##### Generate the plotting functions #####
+
+# Plot percentage of target regions achieving various levels of coverage
+CoverageDepth <- function(dataframe, read_depth, coverage_percentage, sample){
+  ggplot(dataframe, aes(read_depth, coverage_percentage, col = sample)) +
+    xlab("Average coverage") +
+    ylab("Fraction of the region of interest included") +
+    geom_path() +
+    ylim(0.75, 1) +
+    theme_minimal()
+}
+
+
+# Plot distribution of barcode reads for all samples
+SampleCoverageDistrubtion <- function(dataframe, coverage, sample){
+  ggplot(dataframe) +
+    geom_boxplot(aes(x = sample, y = coverage, fill = sample), outlier.shape = NA, notch = T) +
+    ggtitle("Distribution of total barcode reads per amplicon across each sample\n") +
+    scale_fill_manual(values = colour_palette) +
+    coord_cartesian(ylim = quantile(coverage, c(0.1, 0.9), na.rm = T)) +
+    # scale_y_continuous(breaks = seq(0, 4000, 500)) +
+    ylab("Number of barcode reads for a specific amplicon\n") +
+    xlab("\nSample") +
+    labs(fill = "") + 
+    theme(axis.text = element_text(size = 14),
+          axis.title = element_text(size = 16),
+          plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+          # Lengends to the top
+          legend.position = "right",
+          # Remove panel border
+          panel.border = element_blank(),
+          # Remove panel grid lines
+          panel.grid.major.x = element_blank(),
+          # explicitly set the horizontal lines (or they will disappear too)
+          panel.grid.major.y = element_line(size = .25, color = "black"),
+          panel.grid.minor = element_blank(),
+          # Remove panel background
+          panel.background = element_blank(),
+          axis.text.x = element_blank()
+    )
+}
+
+
+# Plot barcode reads for all samples by amplicon
+AmpliconCoverageDistrubtion <- function(dataframe, amplicon, coverage, sample){
+  ggplot(dataframe)  +
+    geom_point(aes(x = reorder(x = amplicon, X = coverage), y = coverage, color = sample)) +
+    scale_fill_manual(values = colour_palette) +
+    ggtitle("Distribution of total barcode reads per amplicon across each sample\n") +
+    ylab("Average barcode reads across all samples\n") +
+    xlab("\nAmplicon") + 
+    scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                  labels = trans_format("log10", math_format(10^.x))) +
+    labs(fill = "") +
+    theme(axis.text = element_text(size = 14),
+          axis.title = element_text(size = 16),
+          plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+          # Lengends to the top
+          legend.position = "right",
+          # Remove panel border
+          panel.border = element_blank(),
+          # Remove panel grid lines
+          panel.grid.major.x = element_blank(),
+          # Explicitly set the horizontal lines (or they will disappear too)
+          panel.grid.major.y = element_line(size = .01, color = "black"),
+          panel.grid.minor = element_blank(),
+          # Remove panel background
+          panel.background = element_blank(),
+          axis.text.x = element_blank()
+    )
+}
+
+
+##### Generate the plots #####
+
+CoverageDepth(
+  sample_coverage,
+  sample_coverage$read_depth,
+  sample_coverage$coverage_percentage,
+  sample_coverage$sample)
+
+SampleCoverageDistrubtion(
+  amplicon_coverage_melted,
+  amplicon_coverage_melted$id,
+  amplicon_coverage_melted$BARCODE_COUNT)
+
+# AmpliconCoverageDistrubtion(
+#   head(amplicon_coverage_melted, n = 20000),
+#   amplicon_coverage_melted$PRIMER[1:20000],
+#   amplicon_coverage_melted$BARCODE_COUNT[1:20000],
+#   amplicon_coverage_melted$id[1:20000])
+
+for(i in unique(amplicon_coverage_melted$id)){
+  a <- amplicon_coverage_melted[amplicon_coverage_melted$id == i,]
+  print(AmpliconCoverageDistrubtion(
+    a,
+    a$PRIMER,
+    a$BARCODE_COUNT,
+    a$id))
+}
 
 variant_frequency <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*VAF_frequencies_bare*")
 variant_frequency <- lapply(variant_frequency, read.table)
 variant_frequency <- do.call(rbind.data.frame, variant_frequency)
 variant_frequency <- variant_frequency[-1,]
 hist(as.numeric(variant_frequency$V2), breaks = 100, xlim = c(0, 1))
-
-coverage_percentages <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*coverage_percentages*")
-coverage_percentages <- lapply(coverage_percentages, read.table)
-coverage_percentages <- do.call(rbind.data.frame, coverage_percentages)
-coverage_percentages <- coverage_percentages[-1,]
-colnames(coverage_percentages) <- c("Amplicon", "1x", "10x", "20x", "40x", "80x", "160x", "200x", "320x", "640x")
-
-hist(as.numeric(coverage_percentages$`320x`)/1000)
-
-coverage_percentages <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*coverage_percentages*")
-coverage_percentages <- lapply(coverage_percentages, read.table)
-coverage_percentages <- do.call(rbind.data.frame, coverage_percentages)
-coverage_percentages <- coverage_percentages[-1,]
-colnames(coverage_percentages) <- c("Amplicon", "1x", "10x", "20x", "40x", "80x", "160x", "200x", "320x", "640x")
-
 
 ##### Identify common zero coverage primers #####
 
@@ -95,18 +199,6 @@ df <- data_frame(coverage, percentage_coverage_regions_s1, percentage_coverage_r
 sample_coverage <- melt(df, id.vars = "coverage")
 colnames(sample_coverage) <- c("read_depth", "sample", "coverage_percentage")
 
-##### Produce functions which generate the plots #####
-
-# Plot percentage of target regions achieving various levels of coverage
-CoverageDepth <- function(dataframe, read_depth, coverage_percentage, sample){
-  ggplot(dataframe, aes(read_depth, coverage_percentage, col = sample)) +
-    xlab("Average coverage") +
-    ylab("Fraction of the region of interest included") +
-    geom_path() +
-    ylim(0.75, 1) +
-    theme_minimal()
-}
-
 # Import the per primer pair coverage metrics
 barcode_coverage_s1_per_amplicon <- 
   read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L001_default_amplicon_coverage", 
@@ -126,97 +218,15 @@ barcode_coverage_df_per_amplicon <-
        barcode_coverage_s2_per_amplicon,
        barcode_coverage_s3_per_amplicon, 
        barcode_coverage_s4_per_amplicon
-       ) %>% 
+  ) %>% 
   reduce(full_join, by = "Amplicon")
 
 # Plot all barcode reads for all amplicon by sample
 amplicon_sample_coverage <- melt(barcode_coverage_df_per_amplicon, measure.vars = c(
   "Sample_1_L1", "Sample_1_L2", "Sample_1_L3", "Sample_1_L4"
-  ))
+))
 
 colnames(amplicon_sample_coverage) <- c("amplicon", "sample", "coverage")
-
-
-SampleCoverageDistrubtion <- function(dataframe, amplicon, coverage, sample){
-  ggplot(dataframe) +
-    geom_boxplot(aes(x = sample, y = coverage, fill = sample), outlier.shape = NA, notch = T) +
-    ggtitle("Distribution of total barcode reads per amplicon across each sample\n") +
-    scale_fill_manual(values = colour_palette) +
-    coord_cartesian(ylim = quantile(dataframe$coverage, c(0.1, 0.9), na.rm = T)) +
-    # scale_y_continuous(breaks = seq(0, 4000, 500)) +
-    ylab("Number of barcode reads for a specific amplicon\n") +
-    xlab("\nSample") +
-    labs(fill = "") + 
-    theme(axis.text = element_text(size = 14),
-          axis.title = element_text(size = 16),
-          plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
-          # Lengends to the top
-          legend.position = "right",
-          # Remove panel border
-          panel.border = element_blank(),
-          # Remove panel grid lines
-          panel.grid.major.x = element_blank(),
-          # explicitly set the horizontal lines (or they will disappear too)
-          panel.grid.major.y = element_line(size = .25, color = "black"),
-          panel.grid.minor = element_blank(),
-          # Remove panel background
-          panel.background = element_blank(),
-          axis.text.x = element_blank()
-    )
-}
-
-
-# Plot barcode reads for all samples by amplicon
-AmpliconCoverageDistrubtion <- function(amplicon_sample_coverage, amplicon, value){
-  ggplot(amplicon_sample_coverage, aes(x = reorder(Amplicon, value, FUN = mean), y = value)) +
-    geom_boxplot(outlier.size = 0.1) +
-    geom_jitter(position = position_jitter(0.2)) +
-    ggtitle("Distribution of total barcode reads per amplicon across each sample\n") +
-    ylab("Average barcode reads across all samples\n") +
-    xlab("\nAmplicon") + 
-    labs(fill = "") +
-    theme(axis.text = element_text(size = 14),
-          axis.title = element_text(size = 16),
-          plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
-          # Lengends to the top
-          legend.position = "right",
-          # Remove panel border
-          panel.border = element_blank(),
-          # Remove panel grid lines
-          panel.grid.major.x = element_blank(),
-          # explicitly set the horizontal lines (or they will disappear too)
-          panel.grid.major.y = element_line(size = .25, color = "black"),
-          panel.grid.minor = element_blank(),
-          # Remove panel background
-          panel.background = element_blank(),
-          axis.text.x = element_blank()
-    )
-}
-
-
-
-##### Pick colours #####
-
-colour_palette <- wesanderson::wes_palettes$Darjeeling1
-
-##### Generate the plots #####
-
-CoverageDepth(
-  sample_coverage,
-  sample_coverage$read_depth,
-  sample_coverage$coverage_percentage,
-  sample_coverage$sample)
-
-SampleCoverageDistrubtion(
-  amplicon_sample_coverage,
-  amplicon_sample_coverage$amplicon,
-  amplicon_sample_coverage$sample,
-  amplicon_sample_coverage$coverage)
-
-AmpliconCoverage(
-  amplicon_sample_coverage,
-  amplicon_sample_coverage$amplicon,
-  amplicon_sample_coverage$coverage)
 
 # Pull out all the VAFs and plot them
 s1_VAF <- read.table("~/S1_VAF", header = F, col.names = c("Location", "VAF"))
