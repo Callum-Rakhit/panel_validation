@@ -1,10 +1,10 @@
+# R files
 *.Rproj.user
 *.Rhistory
 *.RData
 *.Ruserdata
 *.Rproj
 .Rproj.user
-
 
 # Plots
 *.pdf

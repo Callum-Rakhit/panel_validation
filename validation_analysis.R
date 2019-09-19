@@ -14,15 +14,12 @@ GetPackages <- function(required.packages) {
   suppressMessages(lapply(required.packages, require, character.only = T))
 }
 
-GetPackages(c("ggplot2", "reshape2", "wesanderson", "tidyverse", "scales", "doParallel", "devtools", "dplyr"))
+GetPackages(c("ggplot2", "reshape2", "wesanderson", "tidyverse", "scales", "doParallel", 
+              "devtools", "dplyr", "gtable", "grid", "gridExtra"))
 install_github("kassambara/easyGgplot2")  # Need devtools to use this function
 library(easyGgplot2)
 
 ##### Load relevant data #####
-
-# for (i in 1:length(amplicon_coverage_filenames)) {
-#   assign(paste0(basename(amplicon_coverage_filenames[i])), data.frame(amplicon_coverage_list[i]))
-# }
 
 # ROI coverage percentage information
 coverage_percentages_filenames <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*coverage_percentages*")
@@ -32,10 +29,8 @@ coverage_percentage_melted <- do.call(rbind, coverage_percentage_list)
 coverage_percentage_melted$id <- factor(rep(coverage_percentage_sample_names, each = sapply(coverage_percentage_list, nrow)))
 colnames(coverage_percentage_melted) <- c("Amplicon", "1x", "10x", "20x", "40x", "80x", "160x", "200x", "320x", "640x", "sampleID")
 
-hist(as.numeric(coverage_percentage_melted$`320x`)/1000)
-
 # Amplicon/coverage/sample data
-amplicon_coverage_filenames <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*default_amplicon_coverage*")
+amplicon_coverage_filenames <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*amplicon_coverage")
 amplicon_coverage_sample_names <- paste0(basename(amplicon_coverage_filenames))
 amplicon_coverage_list <- lapply(amplicon_coverage_filenames, function(i){read.table(file = i, header = T)})
 amplicon_coverage_melted <- do.call(rbind, amplicon_coverage_list)
@@ -48,32 +43,14 @@ colour_palette <- wesanderson::wes_palettes$Darjeeling1
 ##### Generate the plotting functions #####
 
 # Plot percentage of target regions achieving various levels of coverage
-CoverageDepth <- function(dataframe, read_depth, coverage_percentage, sample){
-  ggplot(dataframe, aes(read_depth, coverage_percentage, col = sample)) +
-    xlab("Average coverage") +
-    ylab("Fraction of the region of interest included") +
-    geom_path() +
-    ylim(0.75, 1) +
-    theme_minimal()
-}
-
-
-# Plot distribution of barcode reads for all samples
-SampleCoverageDistrubtion <- function(dataframe, coverage, sample){
+CoverageDepth <- function(dataframe, coverage, coverage.depth, sample){
   ggplot(dataframe) +
-    geom_boxplot(aes(x = sample, y = coverage, fill = sample), outlier.shape = NA, notch = T) +
-    ggtitle("Distribution of total barcode reads per amplicon across each sample\n") +
-    scale_fill_manual(values = colour_palette) +
-    coord_cartesian(ylim = quantile(coverage, c(0.1, 0.9), na.rm = T)) +
-    # scale_y_continuous(breaks = seq(0, 4000, 500)) +
-    ylab("Number of barcode reads for a specific amplicon\n") +
-    xlab("\nSample") +
-    labs(fill = "") + 
-    theme(axis.text = element_text(size = 14),
-          axis.title = element_text(size = 16),
-          plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
-          # Lengends to the top
-          legend.position = "right",
+    geom_boxplot(aes(x = coverage.depth, y = coverage, fill = coverage.depth), outlier.shape = NA, notch = F) +
+    xlab(sample) +
+    theme(# Lengends to the top
+          legend.position = "none",
+          # Remove the y-axis
+          axis.title.y = element_blank(),
           # Remove panel border
           panel.border = element_blank(),
           # Remove panel grid lines
@@ -83,70 +60,134 @@ SampleCoverageDistrubtion <- function(dataframe, coverage, sample){
           panel.grid.minor = element_blank(),
           # Remove panel background
           panel.background = element_blank(),
-          axis.text.x = element_blank()
+          # Rotate the x-axis labels 0 degrees
+          axis.text.x = element_text(angle = 0, hjust = 0))
+}
+
+
+# Plot distribution of barcode reads for all samples
+SampleCoverageDistrubtion <- function(dataframe, coverage, sample){
+  ggplot(dataframe) +
+    geom_boxplot(aes(x = reorder(x = sample, X = coverage), y = coverage, fill = sample), outlier.shape = NA, notch = T) +
+    ggtitle("Distribution of total barcode reads per amplicon across each sample\n") +
+    # scale_fill_manual(values = colour_palette) +
+    # coord_cartesian(ylim = quantile(coverage, c(0.1, 0.9), na.rm = T)) +
+    scale_y_continuous(breaks = seq(0, 4000, 500)) +
+    ylab("Number of barcode reads for a specific amplicon\n") +
+    xlab("Sample") +
+    labs(fill = "") + 
+    theme(axis.text = element_text(size = 14),
+          axis.title = element_text(size = 16),
+          plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+          # Lengends to the top
+          legend.position = "none",
+          # Remove panel border
+          panel.border = element_blank(),
+          # Remove panel grid lines
+          panel.grid.major.x = element_blank(),
+          # explicitly set the horizontal lines (or they will disappear too)
+          panel.grid.major.y = element_line(size = .25, color = "black"),
+          panel.grid.minor = element_blank(),
+          # Remove panel background
+          panel.background = element_blank(),
+          # Rotate the x-axis labels 90 degrees
+          axis.text.x = element_text(angle = 90, hjust = 0)
     )
 }
 
 
 # Plot barcode reads for all samples by amplicon
-AmpliconCoverageDistrubtion <- function(dataframe, amplicon, coverage, sample){
-  ggplot(dataframe)  +
-    geom_point(aes(x = reorder(x = amplicon, X = coverage), y = coverage, color = sample)) +
-    scale_fill_manual(values = colour_palette) +
-    ggtitle("Distribution of total barcode reads per amplicon across each sample\n") +
-    ylab("Average barcode reads across all samples\n") +
-    xlab("\nAmplicon") + 
+AmpliconCoverageDistrubtion <- function(dataframe, coverage, amplicon, sample){
+  ggplot(dataframe) + 
+    geom_point(aes(reorder(x = amplicon, X = coverage), y = coverage, color = sample)) +
     scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                   labels = trans_format("log10", math_format(10^.x))) +
-    labs(fill = "") +
-    theme(axis.text = element_text(size = 14),
-          axis.title = element_text(size = 16),
-          plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
-          # Lengends to the top
-          legend.position = "right",
-          # Remove panel border
-          panel.border = element_blank(),
-          # Remove panel grid lines
-          panel.grid.major.x = element_blank(),
-          # Explicitly set the horizontal lines (or they will disappear too)
-          panel.grid.major.y = element_line(size = .01, color = "black"),
-          panel.grid.minor = element_blank(),
-          # Remove panel background
-          panel.background = element_blank(),
-          axis.text.x = element_blank()
-    )
+    xlab(sample) +
+    theme(
+      # Lengends to the top
+      legend.position = "none",
+      # Remove the y-axis
+      axis.title.y = element_blank(),
+      # Remove panel border
+      panel.border = element_blank(),
+      # Remove panel grid lines
+      panel.grid.major.x = element_blank(),
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      # explicitly set the horizontal lines (or they will disappear too)
+      panel.grid.major.y = element_line(size = .25, color = "black"),
+      panel.grid.minor = element_blank(),
+      # Remove panel background
+      panel.background = element_blank())
 }
 
 
 ##### Generate the plots #####
 
-CoverageDepth(
-  sample_coverage,
-  sample_coverage$read_depth,
-  sample_coverage$coverage_percentage,
-  sample_coverage$sample)
+# Plot1
+p <- list()
+lapply(unique(coverage_percentage_melted$sampleID), function(i) {
+  coverage_percentage_melted[coverage_percentage_melted$sampleID == i,] %>% 
+  melt %>%
+  CoverageDepth(., .$value, .$variable, i) %>%
+  {. ->> p[[i]] }
+})  
+output <- grid.arrange(grobs = p,
+             top = textGrob("Percentage of amplicons achieving various levels of coverage", vjust = 1, gp = gpar(fontface = "bold", cex = 1.5)),
+             left = textGrob("IQR of amplicon coverage", rot = 90, vjust = 1))
+ggsave("~/Desktop/Rplot.pdf", output, width = 16*1.25, height = 9*1.25)
 
+# Plot 2
+pdf("~/Desktop/Rplot.pdf", width = 16*1.5, height = 9*1.5)
 SampleCoverageDistrubtion(
   amplicon_coverage_melted,
-  amplicon_coverage_melted$id,
-  amplicon_coverage_melted$BARCODE_COUNT)
+  amplicon_coverage_melted$BARCODE_COUNT,
+  amplicon_coverage_melted$id)
+graphics.off()
 
-# AmpliconCoverageDistrubtion(
-#   head(amplicon_coverage_melted, n = 20000),
-#   amplicon_coverage_melted$PRIMER[1:20000],
-#   amplicon_coverage_melted$BARCODE_COUNT[1:20000],
-#   amplicon_coverage_melted$id[1:20000])
+# Plot 3
+p <- list()
+lapply(unique(amplicon_coverage_melted$id), function(i) {
+  amplicon_coverage_melted[amplicon_coverage_melted$id == i,] %>%
+    AmpliconCoverageDistrubtion(., .$BARCODE_COUNT, .$PRIMER, i) %>%
+    {. ->> p[[i]] }
+})  
+output <- grid.arrange(
+  grobs = p,
+  top = textGrob("Vertical read depth for each amplicon", vjust = 1, gp = gpar(fontface = "bold", cex = 1.5)),
+  left = textGrob("Barcode-adjusted read depth", rot = 90, vjust = 1))
+ggsave("~/Desktop/Rplot.png", device = "png", output, width = 16*1.25, height = 9*1.25)
 
-for(i in unique(amplicon_coverage_melted$id)){
-  a <- amplicon_coverage_melted[amplicon_coverage_melted$id == i,]
-  print(AmpliconCoverageDistrubtion(
-    a,
-    a$PRIMER,
-    a$BARCODE_COUNT,
-    a$id))
-}
 
-variant_frequency <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*VAF_frequencies_bare*")
+
+
+
+placeholder
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##### Unfinished attempts to plot VAF graphs #####
+
+# Load the datavariant_frequency <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*VAF_frequencies_bare*")
 variant_frequency <- lapply(variant_frequency, read.table)
 variant_frequency <- do.call(rbind.data.frame, variant_frequency)
 variant_frequency <- variant_frequency[-1,]
