@@ -38,7 +38,7 @@ amplicon_coverage_melted$id <- factor(rep(amplicon_coverage_sample_names, each =
 
 ##### Pick colours #####
 
-colour_palette <- wesanderson::wes_palettes$Darjeeling1
+colour_palette <- rep(x = wesanderson::wes_palettes$Darjeeling1, times = 10)
 
 ##### Generate the plotting functions #####
 
@@ -47,6 +47,7 @@ CoverageDepth <- function(dataframe, coverage, coverage.depth, sample){
   ggplot(dataframe) +
     geom_boxplot(aes(x = coverage.depth, y = coverage, fill = coverage.depth), outlier.shape = NA, notch = F) +
     xlab(sample) +
+    scale_fill_manual(values = colour_palette) +
     theme(# Lengends to the top
           legend.position = "none",
           # Remove the y-axis
@@ -69,11 +70,11 @@ CoverageDepth <- function(dataframe, coverage, coverage.depth, sample){
 SampleCoverageDistrubtion <- function(dataframe, coverage, sample){
   ggplot(dataframe) +
     geom_boxplot(aes(x = reorder(x = sample, X = coverage), y = coverage, fill = sample), outlier.shape = NA, notch = T) +
-    ggtitle("Distribution of total barcode reads per amplicon across each sample\n") +
+    ggtitle("Disribution of reads per amplicon for each sample\n") +
     # scale_fill_manual(values = colour_palette) +
-    # coord_cartesian(ylim = quantile(coverage, c(0.1, 0.9), na.rm = T)) +
-    scale_y_continuous(breaks = seq(0, 4000, 500)) +
-    ylab("Number of barcode reads for a specific amplicon\n") +
+    coord_cartesian(ylim = quantile(coverage, c(0.01, 0.99), na.rm = T)) +
+    scale_fill_manual(values = colour_palette) +
+    ylab("IQR of barcode-adjusted reads for all amplicons\n") +
     xlab("Sample") +
     labs(fill = "") + 
     theme(axis.text = element_text(size = 14),
@@ -100,8 +101,8 @@ SampleCoverageDistrubtion <- function(dataframe, coverage, sample){
 AmpliconCoverageDistrubtion <- function(dataframe, coverage, amplicon, sample){
   ggplot(dataframe) + 
     geom_point(aes(reorder(x = amplicon, X = coverage), y = coverage, color = sample)) +
-    scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                  labels = trans_format("log10", math_format(10^.x))) +
+    scale_fill_manual(values = colour_palette) +
+    scale_y_log10(limits = c(1, 10000)) +
     xlab(sample) +
     theme(
       # Lengends to the top
@@ -124,6 +125,13 @@ AmpliconCoverageDistrubtion <- function(dataframe, coverage, amplicon, sample){
 
 ##### Generate the plots #####
 
+# Crude coverage summary
+# lapply(unique(amplicon_coverage_melted$id), function(i) {
+#   amplicon_coverage_melted[amplicon_coverage_melted$id == i,] %>%
+#     select(BARCODE_COUNT) %>%
+#     sum
+# })
+
 # Plot1
 p <- list()
 lapply(unique(coverage_percentage_melted$sampleID), function(i) {
@@ -133,8 +141,8 @@ lapply(unique(coverage_percentage_melted$sampleID), function(i) {
   {. ->> p[[i]] }
 })  
 output <- grid.arrange(grobs = p,
-             top = textGrob("Percentage of amplicons achieving various levels of coverage", vjust = 1, gp = gpar(fontface = "bold", cex = 1.5)),
-             left = textGrob("IQR of amplicon coverage", rot = 90, vjust = 1))
+             top = textGrob("Percent of amplicons achieving 'x' level of coverage", vjust = 1, gp = gpar(fontface = "bold", cex = 1.5)),
+             left = textGrob("IQR of amplicon coverage (%)", rot = 90, vjust = 1))
 ggsave("~/Desktop/Rplot.pdf", output, width = 16*1.25, height = 9*1.25)
 
 # Plot 2
@@ -156,11 +164,7 @@ output <- grid.arrange(
   grobs = p,
   top = textGrob("Vertical read depth for each amplicon", vjust = 1, gp = gpar(fontface = "bold", cex = 1.5)),
   left = textGrob("Barcode-adjusted read depth", rot = 90, vjust = 1))
-ggsave("~/Desktop/Rplot.png", device = "png", output, width = 16*1.25, height = 9*1.25)
-
-
-
-
+ggsave("~/Desktop/Rplot.pdf", output, width = 16*1.25, height = 9*1.25)
 
 placeholder
 
@@ -185,16 +189,113 @@ placeholder
 
 
 
+
+
+
+
+
+
+
+
+
 ##### Unfinished attempts to plot VAF graphs #####
 
+VAFs <- read.csv("~/panel_validation/Horizon_Control_Locations_AF.csv")
+
+HD200 <- as.data.frame(variant_frequency_list[["HD200_S11_default_VAF_frequencies_bare"]])
+HD701 <- as.data.frame(variant_frequency_list[["HD701_S10_default_VAF_frequencies_bare"]])
+HD798 <- as.data.frame(variant_frequency_list[["HD798_S9_default_VAF_frequencies_bare"]])
+
+HD200_VAFs <- list()
+
+for(i in VAFs[VAFs$ControlID == "HD200", ]$Exact_Location){ 
+  HD200_VAFs[[i]] <- HD200[HD200$V1 == i, ] }
+
+HD200_VAFs <- do.call(rbind, HD200_VAFs)
+colnames(HD200_VAFs) <- c("Exact_Location", "HD200_AF")
+
+VAFs_HD200 <- merge(VAFs, HD200_VAFs, by = 'Exact_Location', all = T)
+VAFs_HD200$AF <- gsub(pattern = "%", replacement = "", x = VAFs_HD200$AF)
+VAFs_HD200$AF <- as.numeric(VAFs_HD200$AF)/100
+
+# Plot residuals
+# VAF.lm <- lm(AF ~ HD200_AF, data = VAFs_HD200[VAFs_HD200$ControlID == "HD200", ], na.action = na.exclude)
+VAF.lm <- lm(AF ~ HD200_AF, data = VAFs_HD200[VAFs_HD200$ControlID == "HD200", ], na.action = na.exclude)
+VAF.pred <- predict(VAF.lm)
+VAF.actual <- VAFs_HD200[VAFs_HD200$ControlID == "HD200", ]$AF
+VAF.res <- resid(VAF.lm)
+
+View(VAF.pred)
+View(VAFs_HD200[VAFs_HD200$ControlID == "HD200", ])
+
+ggplot(VAFs_HD200[VAFs_HD200$ControlID == "HD200", ],
+       aes(x = AF, y = HD200_AF, 
+           color = ifelse(is.na(HD200_AF), "Missing", "Present"), 
+           shape = ifelse(is.na(HD200_AF), "Missing", "Present"),
+           size = ifelse(is.na(HD200_AF), "Missing", "Present"))) +
+  geom_abline(intercept = 0, slope = 1, alpha = 0.2) +
+  geom_point(shape = 1, size = 2) +
+  geom_point(aes(y = AF)) +
+  geom_segment(aes(xend = AF, yend = AF), alpha = .2, size = 1, linetype = 2) +
+  scale_shape_manual(name = "", values = c(Missing = 4, Present = 19)) +
+  scale_color_manual(name = "", values = c(Missing = "red", Present = "black")) +
+  scale_size_manual(name = "", values = c(Missing = 3, Present = 2)) +
+  xlab(label = "True AF (black dots)") +
+  ylab(label = "Observed AF (white dots)") +
+  theme(
+    # Lengends to the top
+    legend.position = "top",
+    # Remove panel border
+    panel.border = element_blank(),
+    # Remove panel grid lines
+    panel.grid.major.x = element_blank(),
+    # explicitly set the horizontal lines (or they will disappear too)
+    panel.grid.major.y = element_line(size = .25, color = "black"),
+    panel.grid.minor = element_blank(),
+    # Remove panel background
+    panel.background = element_blank())
+
+ggsave("~/Desktop/Rplot.pdf", output, width = 16*1.25, height = 9*1.25)
+  
+hold
+
+ggpubr::show_point_shapes()
+
+ggplot(d, aes(x = hp, y = mpg)) +
+  geom_smooth(method = "lm", se = FALSE, color = "lightgrey") +  # Plot regression slope
+  geom_segment(aes(xend = hp, yend = predicted), alpha = .2) +  # alpha to fade lines
+  geom_point() +
+  geom_point(aes(y = predicted), shape = 1) +
+  theme_bw()  # Add theme for cleaner look
+
+
+a[a$V1 == "1:100292538", ]
+a[a$V1 == "4:55599333", ]
+a[a$V1 == "7:55241707", ]
+a[a$V1 == "4:55599333", ]
+
 # Load the datavariant_frequency <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*VAF_frequencies_bare*")
-variant_frequency <- lapply(variant_frequency, read.table)
-variant_frequency <- do.call(rbind.data.frame, variant_frequency)
-variant_frequency <- variant_frequency[-1,]
-hist(as.numeric(variant_frequency$V2), breaks = 100, xlim = c(0, 1))
+variant_frequency_filenames <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation_12_samples/*VAF_frequencies_bare")
+variant_frequency_list <- list()
+lapply(variant_frequency_filenames, function(i){read.table(file = i, header = F) %>%
+    { . ->> variant_frequency_list[[paste0(basename(i))]] }
+    })
+variant_frequency_melted <- do.call(rbind, variant_frequency_list)
+
+
+
+p <- list()
+lapply(unique(amplicon_coverage_melted$id), function(i) {
+  amplicon_coverage_melted[amplicon_coverage_melted$id == i,] %>%
+    AmpliconCoverageDistrubtion(., .$BARCODE_COUNT, .$PRIMER, i) %>%
+    {. ->> p[[i]] }
+})  
+variant_frequency_melted$id <- factor(rep(variant_frequency_sample_names, each = sapply(variant_frequency_filenames, nrow)))
+hist(variant_frequency_melted$V2)
 
 ##### Identify common zero coverage primers #####
 
+# Read in data files from snappy
 zero_coverage_regions_s1_L1 <- read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L001_default_zero_coverage", header = T)
 zero_coverage_regions_s1_L2 <- read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L002_default_zero_coverage", header = T)
 zero_coverage_regions_s1_L3 <- read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L003_default_zero_coverage", header = T)
@@ -239,35 +340,6 @@ df <- data_frame(coverage, percentage_coverage_regions_s1, percentage_coverage_r
                  percentage_coverage_regions_s3, percentage_coverage_regions_s4)
 sample_coverage <- melt(df, id.vars = "coverage")
 colnames(sample_coverage) <- c("read_depth", "sample", "coverage_percentage")
-
-# Import the per primer pair coverage metrics
-barcode_coverage_s1_per_amplicon <- 
-  read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L001_default_amplicon_coverage", 
-             header = T, col.names = c("Amplicon", "Sample_1_L1"))
-barcode_coverage_s2_per_amplicon <- 
-  read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-20_S4_L002_default_amplicon_coverage",
-             header = T, col.names = c("Amplicon", "Sample_1_L2"))
-barcode_coverage_s3_per_amplicon <-
-  read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-20_S4_L003_default_amplicon_coverage",
-             header = T, col.names = c("Amplicon", "Sample_1_L3"))
-barcode_coverage_s4_per_amplicon <-
-  read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-20_S4_L004_default_amplicon_coverage", skip = 7,
-             header = T, col.names = c("Amplicon", "Sample_1_L4"))
-
-barcode_coverage_df_per_amplicon <- 
-  list(barcode_coverage_s1_per_amplicon, 
-       barcode_coverage_s2_per_amplicon,
-       barcode_coverage_s3_per_amplicon, 
-       barcode_coverage_s4_per_amplicon
-  ) %>% 
-  reduce(full_join, by = "Amplicon")
-
-# Plot all barcode reads for all amplicon by sample
-amplicon_sample_coverage <- melt(barcode_coverage_df_per_amplicon, measure.vars = c(
-  "Sample_1_L1", "Sample_1_L2", "Sample_1_L3", "Sample_1_L4"
-))
-
-colnames(amplicon_sample_coverage) <- c("amplicon", "sample", "coverage")
 
 # Pull out all the VAFs and plot them
 s1_VAF <- read.table("~/S1_VAF", header = F, col.names = c("Location", "VAF"))
