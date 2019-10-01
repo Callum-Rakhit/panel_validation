@@ -1,18 +1,15 @@
 # TODO(Callum)
-#   Streamline graph generation scripts
-#     - Automate file import and naming (no hardcoding)
+#  - Take input directly from snappy
+#  - Automate file import and naming (no hardcoding)
 
 ##### Load/Install relevant packages #####
 
 # Also need libssl-dev and libxml2-dev on Ubuntu 18.04
 GetPackages <- function(required.packages) {
-  packages.not.installed <- 
-    required.packages[!(required.packages %in% installed.packages()[, "Package"])]
-  if(length(packages.not.installed)){
-    install.packages(packages.not.installed, dependencies = T)}
+  packages.not.installed <- required.packages[!(required.packages %in% installed.packages()[, "Package"])]
+  if(length(packages.not.installed)){install.packages(packages.not.installed, dependencies = T)}
   suppressMessages(lapply(required.packages, require, character.only = T))
 }
-
 
 GetPackages(c("ggplot2", "reshape2", "wesanderson", "tidyverse", "scales", "doParallel", 
               "devtools", "dplyr", "gtable", "grid", "gridExtra", "data.table"))
@@ -23,14 +20,14 @@ library(easyGgplot2)
 ##### Load relevant data #####
 
 # Amplicon/coverage/sample data
-# amplicon_coverage_filenames <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*amplicon_coverage")
+# amplicon_coverage_filenames <- Sys.glob(
+#   paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*amplicon_coverage")
 amplicon_coverage_filenames <- Sys.glob(
   paths = "/mnt/shared_data/work/metrics_extraction_for_validation_12_samples/*amplicon_coverage")
 amplicon_coverage_sampleIDs <- paste0(basename(amplicon_coverage_filenames))
 amplicon_coverage_list <- lapply(amplicon_coverage_filenames, function(i){read.table(file = i, header = T)})
 amplicon_coverage_melted <- do.call(rbind, amplicon_coverage_list)
-amplicon_coverage_melted$id <- factor(rep(amplicon_coverage_sampleIDs, 
-                                          each = sapply(amplicon_coverage_list, nrow)))
+amplicon_coverage_melted$id <- factor(rep(amplicon_coverage_sampleIDs, each = sapply(amplicon_coverage_list, nrow)))
 
 # ROI coverage percentage information
 # coverage_percentages_filenames <- Sys.glob(
@@ -40,25 +37,23 @@ coverage_percentages_filenames <- Sys.glob(
 coverage_percentage_sampleIDs <- paste0(basename(coverage_percentages_filenames))
 coverage_percentage_list <- lapply(coverage_percentages_filenames, function(i){read.table(file = i, header = T)})
 coverage_percentage_melted <- do.call(rbind, coverage_percentage_list)
-coverage_percentage_melted$id <- factor(rep(coverage_percentage_sampleIDs, 
-                                            each = sapply(coverage_percentage_list, nrow)))
-colnames(coverage_percentage_melted) <- c(
-  "Amplicon", "1x", "10x", "20x", "40x", "80x", "160x", "200x", "320x", "640x", "sampleID")
+coverage_percentage_melted$id <- factor(rep(
+  coverage_percentage_sampleIDs, each = sapply(coverage_percentage_list, nrow)))
+colnames(coverage_percentage_melted) <- c("Amplicon", "1x", "10x", "20x", "40x", "80x", 
+                                          "160x", "200x", "320x", "640x", "sampleID")
 
 # Crude coverage summary
 total_reads <- t(as.data.frame(lapply(unique(amplicon_coverage_melted$id), function(i) {
   amplicon_coverage_melted[amplicon_coverage_melted$id == i,] %>%
     select(BARCODE_COUNT) %>% sum })))
-rownames(total_reads) <- NULL
 total_reads <- as.data.frame(round((total_reads/1000000), digits = 1))
 total_reads$sampleID <- (unique(coverage_percentage_melted$sampleID))
 colnames(total_reads) <- c("totalreads", "sampleID")
 percentages_totalreads_merged <- merge(coverage_percentage_melted, total_reads, by = "sampleID")
 
 # Get the observed VAFs for the horizon controls
-variant_frequency_filenames <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation_12_samples/*VAF_frequencies_bare")
-variant_frequency_sampleIDs <- paste0(basename(variant_frequency_filenames))
-variant_frequency_sampleIDs <- gsub('.{29}$', '', variant_frequency_sampleIDs)
+variant_frequency_filenames <- Sys.glob(
+  paths = "/mnt/shared_data/work/metrics_extraction_for_validation_12_samples/*VAF_frequencies_bare")
 variant_frequency_list <- list()
 invisible(lapply(variant_frequency_filenames, function(i){read.table(file = i, header = F) %>%
     { . ->> variant_frequency_list[[paste0(basename(i))]] } }))
@@ -92,8 +87,6 @@ for(sample.filename in names(variant_frequency_list)){
   VAF[[sample.name.inc.conc]] <- VAFs_HorizonID
 }
 
-VAF$HD200
-
 ##### Pick colours #####
 
 colour_palette <- rep(x = wesanderson::wes_palettes$Darjeeling1, times = 10)
@@ -123,11 +116,11 @@ CoverageDepth <- function(dataframe, coverage, coverage.depth, sample){
       axis.text.x = element_text(angle = 0, hjust = 0))
 }
 
-
 # Plot distribution of barcode reads for all samples
 SampleCoverageDistrubtion <- function(dataframe, coverage, sample){
   ggplot(dataframe) +
-    geom_boxplot(aes(x = reorder(x = sample, X = coverage), y = coverage, fill = sample), outlier.shape = NA, notch = T) +
+    geom_boxplot(aes(x = reorder(x = sample, X = coverage), y = coverage, fill = sample), 
+                 outlier.shape = NA, notch = T) +
     ggtitle("Disribution of reads per amplicon for each sample\n") +
     # scale_fill_manual(values = colour_palette) +
     coord_cartesian(ylim = quantile(coverage, c(0.01, 0.99), na.rm = T)) +
@@ -154,7 +147,6 @@ SampleCoverageDistrubtion <- function(dataframe, coverage, sample){
     )
 }
 
-
 # Plot barcode reads for all samples by amplicon
 AmpliconCoverageDistrubtion <- function(dataframe, coverage, amplicon, sample){
   ggplot(dataframe) + 
@@ -179,43 +171,6 @@ AmpliconCoverageDistrubtion <- function(dataframe, coverage, amplicon, sample){
       # Remove panel background
       panel.background = element_blank())
 }
-
-
-# Plot the VAFs
-VAFPlot <- function(dataframe, HorizonID, HorizonID_AF){
-  ggplot(dataframe,
-         aes(x = AF, y = HorizonID_AF, 
-             color = ifelse(is.na(HorizonID_AF), "Missing", "Present"), 
-             shape = ifelse(is.na(HorizonID_AF), "Missing", "Present"),
-             size = ifelse(is.na(HorizonID_AF), "Missing", "Present"))) +
-    geom_abline(intercept = 0, slope = 1, alpha = 0.5) +
-    geom_point(shape = 1, size = 2) +
-    geom_point(aes(y = AF)) +
-    geom_segment(aes(xend = AF, yend = AF), size = 0.5, linetype = 2, colour = "black", show.legend = F) +
-    scale_shape_manual(name = NULL, values = c(Missing = 4, Present = 19)) +
-    scale_color_manual(name = NULL, values = c(Missing = "red", Present = "black")) +
-    scale_size_manual(name = NULL, values = c(Missing = 4, Present = 2)) +
-    xlab(label = "True allelic frequency (black dots)") +
-    ylab(label = "Observed allelic frequency (white dots)") +
-    ggtitle(label = paste("Observed variant allelic frequency versus expected - ", HorizonID, sep = "")) +
-    xlim(0, .3) +
-    ylim(0, .3) +
-    theme(
-      # Centre title
-      plot.title = element_text(hjust = 0.5),
-      # Lengends to the top
-      legend.position = "top",
-      # Remove panel border
-      panel.border = element_blank(),
-      # Remove panel grid lines
-      panel.grid.major.x = element_blank(),
-      # explicitly set the horizontal lines (or they will disappear too)
-      panel.grid.major.y = element_line(size = .25, color = "black"),
-      panel.grid.minor = element_blank(),
-      # Remove panel background
-      panel.background = element_blank())
-}
-
 
 # Plot percentage of amplicons achieving 320x coverage 
 PercentageAt320 <- function(dataframe, coverage_number, read_depth){
@@ -244,6 +199,39 @@ PercentageAt320 <- function(dataframe, coverage_number, read_depth){
       axis.text.x = element_text(angle = 0, hjust = 0))
 }
 
+# Plot the VAFs
+VAFPlot <- function(dataframe, HorizonID, HorizonID_AF){
+  ggplot(dataframe, aes(x = AF, y = HorizonID_AF, 
+                        color = ifelse(is.na(HorizonID_AF), "Missing", "Present"), 
+                        shape = ifelse(is.na(HorizonID_AF), "Missing", "Present"),
+                        size = ifelse(is.na(HorizonID_AF), "Missing", "Present"))) +
+    geom_abline(intercept = 0, slope = 1, alpha = 0.5) +
+    geom_point(shape = 1, size = 2) +
+    geom_point(aes(y = AF)) +
+    geom_segment(aes(xend = AF, yend = AF), size = 0.5, linetype = 2, colour = "black", show.legend = F) +
+    scale_shape_manual(name = NULL, values = c(Missing = 4, Present = 19)) +
+    scale_color_manual(name = NULL, values = c(Missing = "red", Present = "black")) +
+    scale_size_manual(name = NULL, values = c(Missing = 4, Present = 2)) +
+    xlab(label = "True allelic frequency (black dots)") +
+    ylab(label = "Observed allelic frequency (white dots)") +
+    ggtitle(label = paste("Observed variant allelic frequency versus expected - ", HorizonID, sep = "")) +
+    xlim(0, .3) +
+    ylim(0, .3) +
+    theme(
+      # Centre title
+      plot.title = element_text(hjust = 0.5),
+      # Lengends to the top
+      legend.position = "top",
+      # Remove panel border
+      panel.border = element_blank(),
+      # Remove panel grid lines
+      panel.grid.major.x = element_blank(),
+      # explicitly set the horizontal lines (or they will disappear too)
+      panel.grid.major.y = element_line(size = .25, color = "black"),
+      panel.grid.minor = element_blank(),
+      # Remove panel background
+      panel.background = element_blank())
+}
 
 ##### Generate the plots #####
 
@@ -252,15 +240,11 @@ p <- list()
 
 lapply(unique(coverage_percentage_melted$sampleID), function(i) {
   coverage_percentage_melted[coverage_percentage_melted$sampleID == i,] %>% 
-    melt %>%
-    CoverageDepth(., .$value, .$variable, i) %>%
-    {. ->> p[[i]] }
-})  
+    melt %>% CoverageDepth(., .$value, .$variable, i) %>% {. ->> p[[i]] } })  
 
-output <- grid.arrange(grobs = p,
-                       top = textGrob("Percent of amplicons achieving 'x' level of coverage", 
-                                      vjust = 1, gp = gpar(fontface = "bold", cex = 1.5)),
-                       left = textGrob("IQR of amplicon coverage (%)", rot = 90, vjust = 1))
+output <- grid.arrange(grobs = p, top = textGrob(
+  "Percent of amplicons achieving 'x' level of coverage", vjust = 1, gp = gpar(fontface = "bold", cex = 1.5)),
+  left = textGrob("IQR of amplicon coverage (%)", rot = 90, vjust = 1))
 
 ggsave("~/Desktop/Rplot.pdf", output, width = 16*1.25, height = 9*1.25)
 
@@ -276,17 +260,14 @@ graphics.off()
 
 # Coverage per amplicon log adjusted plot
 p <- list()
+
 lapply(unique(amplicon_coverage_melted$id), function(i) {
-  amplicon_coverage_melted[amplicon_coverage_melted$id == i,] %>%
-    AmpliconCoverageDistrubtion(., .$BARCODE_COUNT, .$PRIMER, i) %>%
-    {. ->> p[[i]] }
-})  
-output <- grid.arrange(
-  grobs = p, 
-  top = textGrob("Vertical read depth for each amplicon", 
-                 vjust = 1, gp = gpar(fontface = "bold", cex = 1.5)),
-  left = textGrob("Barcode-adjusted read depth", rot = 90, vjust = 1)
-)
+  amplicon_coverage_melted[amplicon_coverage_melted$id == i,] %>% 
+    AmpliconCoverageDistrubtion(., .$BARCODE_COUNT, .$PRIMER, i) %>% {. ->> p[[i]] } })  
+
+output <- grid.arrange(grobs = p, top = textGrob(
+  "Vertical read depth for each amplicon", vjust = 1, gp = gpar(fontface = "bold", cex = 1.5)),
+  left = textGrob("Barcode-adjusted read depth", rot = 90, vjust = 1))
 
 ggsave("~/Desktop/Rplot.pdf", output, width = 16*1.25, height = 9*1.25)
 
@@ -303,19 +284,22 @@ output <- VAFPlot(VAF$HD798, "HD798", VAF$HD798$HD798)
 ggsave("~/Desktop/Rplot.pdf", output, width = 16*1, height = 9*1)
 
 # Plot the 320x percentage plot
-output <- PercentageAt320(percentages_totalreads_merged, 
-                          percentages_totalreads_merged$`320x`, 
-                          percentages_totalreads_merged$totalreads)
+output <- PercentageAt320(
+  percentages_totalreads_merged, percentages_totalreads_merged$`320x`, percentages_totalreads_merged$totalreads)
 
 ggsave("~/Desktop/Rplot.pdf", output, width = 16*1, height = 9*1)
 
 ##### Identify common zero coverage primers #####
 
-# Read in data files from snappy
-zero_coverage_regions_s1_L1 <- read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L001_default_zero_coverage", header = T)
-zero_coverage_regions_s1_L2 <- read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L002_default_zero_coverage", header = T)
-zero_coverage_regions_s1_L3 <- read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L003_default_zero_coverage", header = T)
-zero_coverage_regions_s1_L4 <- read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L004_default_zero_coverage", header = T)
+# Read in zero coverage regions from snappy
+zero_coverage_regions_s1_L1 <- read.table(
+  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L001_default_zero_coverage", header = T)
+zero_coverage_regions_s1_L2 <- read.table(
+  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L002_default_zero_coverage", header = T)
+zero_coverage_regions_s1_L3 <- read.table(
+  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L003_default_zero_coverage", header = T)
+zero_coverage_regions_s1_L4 <- read.table(
+  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L004_default_zero_coverage", header = T)
 
 # Export zero coverage regions found in all samples
 common_zero_cov_primers <- base::Reduce(
@@ -323,24 +307,27 @@ common_zero_cov_primers <- base::Reduce(
     zero_coverage_regions_s1_L1$name, 
     zero_coverage_regions_s1_L2$name, 
     zero_coverage_regions_s1_L3$name,
-    zero_coverage_regions_s1_L4$name)
-)
+    zero_coverage_regions_s1_L4$name))
 
 write.table(common_zero_cov_primers, file = "~/Desktop/zero_coverage_amplicons")
 
 ##### Identify common low coverage primers #####
 
-below_200_coverage_regions_s1_L1 <- read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L001_default_low_coverage", header = T)
-below_200_coverage_regions_s1_L2 <- read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L002_default_low_coverage", header = T)
-below_200_coverage_regions_s1_L3 <- read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L003_default_low_coverage", header = T)
-below_200_coverage_regions_s1_L4 <- read.table("/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L004_default_low_coverage", header = T)
+# Read in low coverage (<200) regions from snappy
+below_200_coverage_regions_s1_L1 <- read.table(
+  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L001_default_low_coverage", header = T)
+below_200_coverage_regions_s1_L2 <- read.table(
+  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L002_default_low_coverage", header = T)
+below_200_coverage_regions_s1_L3 <- read.table(
+  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L003_default_low_coverage", header = T)
+below_200_coverage_regions_s1_L4 <- read.table(
+  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L004_default_low_coverage", header = T)
 
 # Export zero coverage regions found in all samples
 common_zero_cov_primers <-base::Reduce(
-  base::intersect, base::list(below_200_coverage_regions_s1_L1$name, 
-                              below_200_coverage_regions_s1_L2$name, 
-                              below_200_coverage_regions_s1_L3$name, 
-                              below_200_coverage_regions_s1_L4$name))
+  base::intersect, base::list(
+    below_200_coverage_regions_s1_L1$name, below_200_coverage_regions_s1_L2$name, 
+    below_200_coverage_regions_s1_L3$name, below_200_coverage_regions_s1_L4$name))
 
 write.table(common_zero_cov_primers, file = "~/Desktop/zero_coverage_amplicons")
 
