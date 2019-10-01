@@ -5,7 +5,6 @@
 ##### Load/Install relevant packages #####
 
 # Also need libssl-dev and libxml2-dev on Ubuntu 18.04
-
 GetPackages <- function(required.packages) {
   packages.not.installed <- 
     required.packages[!(required.packages %in% installed.packages()[, "Package"])]
@@ -17,6 +16,7 @@ GetPackages <- function(required.packages) {
 
 GetPackages(c("ggplot2", "reshape2", "wesanderson", "tidyverse", "scales", "doParallel", 
               "devtools", "dplyr", "gtable", "grid", "gridExtra", "data.table"))
+
 install_github("kassambara/easyGgplot2")  # Need devtools to use this function
 library(easyGgplot2)
 
@@ -67,42 +67,32 @@ variant_frequency_melted <- setDT(variant_frequency_melted, keep.rownames = T)[]
 variant_frequency_melted$rn <- gsub("_default.*", "", variant_frequency_melted$rn)
 colnames(variant_frequency_melted) <- c("sampleID", "location", "VAF")
 
-# Get the expected VAFs for the horizon controls
+# Get the expected VAFs for the controls samples run
 known_VAFs <- read.csv("~/panel_validation/Horizon_Control_Locations_AF.csv")
-# known_VAFs$Exact_Location <- gsub('\\s+', '', known_VAFs$Exact_Location)
-HD200 <- as.data.frame(variant_frequency_list[["HD200_S11_default_VAF_frequencies_bare"]])
-HD701 <- as.data.frame(variant_frequency_list[["HD701_S10_default_VAF_frequencies_bare"]])
-HD798 <- as.data.frame(variant_frequency_list[["HD798_S9_default_VAF_frequencies_bare"]])
+known_VAFs$Exact_Location <- gsub(" ", "", x = known_VAFs$Exact_Location)
 
 # Filter the observations based on those found in the horizon controls 
-HorizonFilter <- function(df_name, HorizonIDinquotes, HorizonID){
+VAF <- list()
+for(sample.filename in names(variant_frequency_list)){
+  sample.name <- (gsub('_S.*', '', sample.filename))
+  sample.name.inc.conc <- (gsub('_S.*', '', sample.filename))
+  sample.name <- (gsub('-.*', '', sample.name))
+  sample.name <- (gsub('18F', '18F-', sample.name))
+  temp_df <- as.data.frame(variant_frequency_list[[sample.filename]])
   df_name <- list()
-  for(i in known_VAFs[known_VAFs$ControlID == HorizonIDinquotes, ]$Exact_Location){
-    df_name[[i]] <- HorizonID[HorizonID$V1 == i, ] }
-  return(do.call(rbind, df_name))
+  for(i in known_VAFs[known_VAFs$ControlID == sample.name, ]$Exact_Location){
+    df_name[[i]] <- temp_df[temp_df$V1 == i, ]}
+  VAFs_HorizonID <- do.call(rbind, df_name)
+  colnames(VAFs_HorizonID) <- c("Exact_Location", sample.name)
+  VAFs_HorizonID <- merge(known_VAFs, VAFs_HorizonID, by = "Exact_Location", all = T)
+  VAFs_HorizonID <- VAFs_HorizonID[VAFs_HorizonID$ControlID == sample.name, ]
+  VAFs_HorizonID$AF <- gsub(pattern = "%", replacement = "", x = VAFs_HorizonID$AF)
+  VAFs_HorizonID$AF <- as.numeric(VAFs_HorizonID$AF)/100
+  print(VAFs_HorizonID)
+  VAF[[sample.name.inc.conc]] <- VAFs_HorizonID
 }
 
-VAFs_HD200 <- HorizonFilter(known_VAFs, "HD200", HD200)
-VAFs_HD701 <- HorizonFilter(known_VAFs, "HD701", HD701)
-VAFs_HD798 <- HorizonFilter(known_VAFs, "HD798", HD798)
-
-colnames(VAFs_HD200) <- c("Exact_Location", "HD200_AF")
-colnames(VAFs_HD701) <- c("Exact_Location", "HD701_AF")
-colnames(VAFs_HD798) <- c("Exact_Location", "HD798_AF")
-
-VAFs_HD200 <- merge(known_VAFs, VAFs_HD200, by = 'Exact_Location', all = T)
-VAFs_HD200 <- VAFs_HD200[VAFs_HD200$ControlID == "HD200", ]
-VAFs_HD701 <- merge(known_VAFs, VAFs_HD701, by = 'Exact_Location', all = T)
-VAFs_HD701 <- VAFs_HD701[VAFs_HD701$ControlID == "HD701", ]
-VAFs_HD798 <- merge(known_VAFs, VAFs_HD798, by = 'Exact_Location', all = T)
-VAFs_HD798 <- VAFs_HD798[VAFs_HD798$ControlID == "HD798", ]
-
-VAFs_HD200$AF <- gsub(pattern = "%", replacement = "", x = VAFs_HD200$AF)
-VAFs_HD200$AF <- as.numeric(VAFs_HD200$AF)/100
-VAFs_HD701$AF <- gsub(pattern = "%", replacement = "", x = VAFs_HD701$AF)
-VAFs_HD701$AF <- as.numeric(VAFs_HD701$AF)/100
-VAFs_HD798$AF <- gsub(pattern = "%", replacement = "", x = VAFs_HD798$AF)
-VAFs_HD798$AF <- as.numeric(VAFs_HD798$AF)/100
+VAF$HD200
 
 ##### Pick colours #####
 
@@ -301,15 +291,15 @@ output <- grid.arrange(
 ggsave("~/Desktop/Rplot.pdf", output, width = 16*1.25, height = 9*1.25)
 
 # Plot 4a - Horizon control HD200
-output <- VAFPlot(VAFs_HD200, "HD200", VAFs_HD200$HD200_AF)
+output <- VAFPlot(VAF$HD200, "HD200", VAF$HD200$HD200) 
 ggsave("~/Desktop/Rplot.pdf", output, width = 16*1, height = 9*1)
 
 # Plot 4b - Horizon control HD701
-output <- VAFPlot(VAFs_HD701, "HD701", VAFs_HD701$HD701_AF)
+output <- VAFPlot(VAF$HD701, "HD701", VAF$HD701$HD701)
 ggsave("~/Desktop/Rplot.pdf", output, width = 16*1, height = 9*1)
 
 # Plot 4c - Horizon control HD798
-output <- VAFPlot(VAFs_HD798, "HD798", VAFs_HD798$HD798_AF)
+output <- VAFPlot(VAF$HD798, "HD798", VAF$HD798$HD798)
 ggsave("~/Desktop/Rplot.pdf", output, width = 16*1, height = 9*1)
 
 # Plot the 320x percentage plot
