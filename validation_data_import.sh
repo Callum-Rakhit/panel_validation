@@ -36,7 +36,6 @@ function aggregate_amplion_coverage {
   done;
   done;
   done
-  
 }
 
 
@@ -55,6 +54,7 @@ function aggregate_VAF {
   done
 }
 
+##### Run functions #####
 
 # Final function to call all previous functions by iterating for the sample folders
 function make_plots {
@@ -65,9 +65,4 @@ function make_plots {
 }
 
 
-make_plots $SNAPPYWORK/analysis/20190830_235206/ $SNAPPYWORK/metrics_extraction_for_validation/
-
-# aggregate_VAF $SNAPPYWORK/analysis/20190727_183445 $SNAPPYWORK/metrics_extraction_for_validation
-# aggregate_amplion_coverage$SNAPPYWORK/analysis/20190727_183445 $SNAPPYWORK/metrics_extraction_for_validation
-# aggregate_coverage_files $SNAPPYWORK/analysis/20190727_183445/ $SNAPPYWORK/metrics_extraction_for_validation/
-
+make_plots $SNAPPYWORK/analysis/20190727_183445/ $SNAPPYWORK/metrics_extraction_for_validation/
