@@ -56,7 +56,7 @@ variant_frequency_filenames <- Sys.glob(
   paths = "/mnt/shared_data/work/metrics_extraction_for_validation_12_samples/*VAF_frequencies_bare")
 variant_frequency_list <- list()
 invisible(lapply(variant_frequency_filenames, function(i){read.table(file = i, header = F) %>%
-    { . ->> variant_frequency_list[[paste0(basename(i))]] } }))
+    {. ->> variant_frequency_list[[paste0(basename(i))]]} }))
 variant_frequency_melted <- do.call(rbind, variant_frequency_list)
 variant_frequency_melted <- setDT(variant_frequency_melted, keep.rownames = T)[]
 variant_frequency_melted$rn <- gsub("_default.*", "", variant_frequency_melted$rn)
@@ -240,7 +240,7 @@ p <- list()
 
 lapply(unique(coverage_percentage_melted$sampleID), function(i) {
   coverage_percentage_melted[coverage_percentage_melted$sampleID == i,] %>% 
-    melt %>% CoverageDepth(., .$value, .$variable, i) %>% {. ->> p[[i]] } })  
+    melt %>% CoverageDepth(., .$value, .$variable, i) %>% {. ->> p[[i]]} })  
 
 output <- grid.arrange(grobs = p, top = textGrob(
   "Percent of amplicons achieving 'x' level of coverage", vjust = 1, gp = gpar(fontface = "bold", cex = 1.5)),
