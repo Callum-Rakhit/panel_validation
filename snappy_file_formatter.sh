@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-LOCATION="."  # If you wanted to specify location
+LOCATION=$1  # Specify location as first argument
 FILENAMESUFFIX1="_R1.fastq.gz"
 FILENAMESUFFIX2="_R2.fastq.gz"
 

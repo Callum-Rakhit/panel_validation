@@ -23,7 +23,7 @@ library(easyGgplot2)
 # amplicon_coverage_filenames <- Sys.glob(
 #   paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*amplicon_coverage")
 amplicon_coverage_filenames <- Sys.glob(
-  paths = "/mnt/shared_data/work/metrics_extraction_for_validation_12_samples/*amplicon_coverage")
+  paths = "/mnt/shared_data/work/three_runs_together/*amplicon_coverage")
 amplicon_coverage_sampleIDs <- paste0(basename(amplicon_coverage_filenames))
 amplicon_coverage_list <- lapply(amplicon_coverage_filenames, function(i){read.table(file = i, header = T)})
 amplicon_coverage_melted <- do.call(rbind, amplicon_coverage_list)
@@ -33,7 +33,7 @@ amplicon_coverage_melted$id <- factor(rep(amplicon_coverage_sampleIDs, each = sa
 # coverage_percentages_filenames <- Sys.glob(
 #   paths = "/mnt/shared_data/work/metrics_extraction_for_validation/*coverage_percentages*")
 coverage_percentages_filenames <- Sys.glob(
-  paths = "/mnt/shared_data/work/metrics_extraction_for_validation_12_samples/*coverage_percentages*")
+  paths = "/mnt/shared_data/work/three_runs_together/*coverage_percentages*")
 coverage_percentage_sampleIDs <- paste0(basename(coverage_percentages_filenames))
 coverage_percentage_list <- lapply(coverage_percentages_filenames, function(i){read.table(file = i, header = T)})
 coverage_percentage_melted <- do.call(rbind, coverage_percentage_list)
@@ -49,11 +49,12 @@ total_reads <- t(as.data.frame(lapply(unique(amplicon_coverage_melted$id), funct
 total_reads <- as.data.frame(round((total_reads/1000000), digits = 1))
 total_reads$sampleID <- (unique(coverage_percentage_melted$sampleID))
 colnames(total_reads) <- c("totalreads", "sampleID")
+sum(total_reads$totalreads)
 percentages_totalreads_merged <- merge(coverage_percentage_melted, total_reads, by = "sampleID")
 
 # Get the observed VAFs for the horizon controls
 variant_frequency_filenames <- Sys.glob(
-  paths = "/mnt/shared_data/work/metrics_extraction_for_validation_12_samples/*VAF_frequencies_bare")
+  paths = "/mnt/shared_data/work/three_runs_together/*VAF_frequencies_bare")
 variant_frequency_list <- list()
 invisible(lapply(variant_frequency_filenames, function(i){read.table(file = i, header = F) %>%
     {. ->> variant_frequency_list[[paste0(basename(i))]]} }))
@@ -68,11 +69,22 @@ known_VAFs$Exact_Location <- gsub(" ", "", x = known_VAFs$Exact_Location)
 
 # Filter the observations based on those found in the horizon controls 
 VAF <- list()
-for(sample.filename in names(variant_frequency_list)){
-  sample.name <- (gsub('_S.*', '', sample.filename))
+
+for(sample.filename in names(variant_frequency_list)[33]){
   sample.name.inc.conc <- (gsub('_S.*', '', sample.filename))
-  sample.name <- (gsub('-.*', '', sample.name))
-  sample.name <- (gsub('18F', '18F-', sample.name))
+  sample.name <- (gsub('_S.*', '', sample.filename))
+  sample.name <- (gsub("18F1", "18F-1", sample.name))
+  sample.name <- (gsub("18F2", "18F-2", sample.name))
+  sample.name <- (gsub("18F3", "18F-3", sample.name))
+  sample.name <- (gsub("18F-18F", "18F", sample.name))
+  sample.name <- (gsub('9-20', '9', sample.name))
+  sample.name <- (gsub('9-40', '9', sample.name))
+  sample.name <- (gsub('9-60', '9', sample.name))
+  sample.name <- (gsub('9-80', '9', sample.name))
+  sample.name <- (gsub('3-20', '3', sample.name))
+  sample.name <- (gsub('3-40', '3', sample.name))
+  sample.name <- (gsub('3-60', '3', sample.name))
+  sample.name <- (gsub('3-80', '3', sample.name))
   temp_df <- as.data.frame(variant_frequency_list[[sample.filename]])
   df_name <- list()
   for(i in known_VAFs[known_VAFs$ControlID == sample.name, ]$Exact_Location){
@@ -83,7 +95,6 @@ for(sample.filename in names(variant_frequency_list)){
   VAFs_HorizonID <- VAFs_HorizonID[VAFs_HorizonID$ControlID == sample.name, ]
   VAFs_HorizonID$AF <- gsub(pattern = "%", replacement = "", x = VAFs_HorizonID$AF)
   VAFs_HorizonID$AF <- as.numeric(VAFs_HorizonID$AF)/100
-  print(VAFs_HorizonID)
   VAF[[sample.name.inc.conc]] <- VAFs_HorizonID
 }
 
@@ -246,7 +257,7 @@ output <- grid.arrange(grobs = p, top = textGrob(
   "Percent of amplicons achieving 'x' level of coverage", vjust = 1, gp = gpar(fontface = "bold", cex = 1.5)),
   left = textGrob("IQR of amplicon coverage (%)", rot = 90, vjust = 1))
 
-ggsave("~/Desktop/Rplot.pdf", output, width = 16*1.25, height = 9*1.25)
+ggsave("~/Desktop/Presentation/Coverage_Percentage_Plot.pdf", output, width = 16*1.25, height = 9*1.25)
 
 # Coverage per amplicon plot
 pdf("~/Desktop/Rplot.pdf", width = 16*1.5, height = 9*1.5)
@@ -293,11 +304,11 @@ ggsave("~/Desktop/Rplot.pdf", output, width = 16*1, height = 9*1)
 
 # Read in zero coverage regions from snappy
 zero_coverage_regions_s1_L1 <- read.table(
-  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L001_default_zero_coverage", header = T)
+  "/mnt/shared_data/work/three_runs_together/HD701_S11_default_zero_coverage", header = T)
 zero_coverage_regions_s1_L2 <- read.table(
-  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L002_default_zero_coverage", header = T)
+  "/mnt/shared_data/work/three_runs_together/HD200_S10_default_zero_coverage", header = T)
 zero_coverage_regions_s1_L3 <- read.table(
-  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L003_default_zero_coverage", header = T)
+  "/mnt/shared_data/work/three_runs_together/HD200_S10_default_zero_coverage", header = T)
 zero_coverage_regions_s1_L4 <- read.table(
   "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L004_default_zero_coverage", header = T)
 
@@ -306,30 +317,70 @@ common_zero_cov_primers <- base::Reduce(
   base::intersect, base::list(
     zero_coverage_regions_s1_L1$name, 
     zero_coverage_regions_s1_L2$name, 
-    zero_coverage_regions_s1_L3$name,
-    zero_coverage_regions_s1_L4$name))
+    zero_coverage_regions_s1_L3$name #,
+    # zero_coverage_regions_s1_L4$name
+    ))
 
 write.table(common_zero_cov_primers, file = "~/Desktop/zero_coverage_amplicons")
 
 ##### Identify common low coverage primers #####
 
 # Read in low coverage (<200) regions from snappy
-below_200_coverage_regions_s1_L1 <- read.table(
-  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L001_default_low_coverage", header = T)
-below_200_coverage_regions_s1_L2 <- read.table(
-  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L002_default_low_coverage", header = T)
-below_200_coverage_regions_s1_L3 <- read.table(
-  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L003_default_low_coverage", header = T)
-below_200_coverage_regions_s1_L4 <- read.table(
-  "/mnt/shared_data/work/metrics_extraction_for_validation/18F199-80_S1_L004_default_low_coverage", header = T)
+low_coverage_filenames <- Sys.glob(
+  paths = "/mnt/shared_data/work/three_runs_together/*low_coverage")
 
-# Export zero coverage regions found in all samples
-common_zero_cov_primers <-base::Reduce(
+low_coverage_regions <- list()
+for(i in low_coverage_filenames){
+  low_coverage_regions[[i]] <- read.table(i, header = T)
+}
+
+# lapply(low_coverage_regions, function(i) common_low_coverage_regions <<- i[["name"]] )
+# unique(common_low_coverage_regions)
+
+low_coverage_regions[[1]][["name"]]
+
+common_low_cov_primers <- base::Reduce(
   base::intersect, base::list(
-    below_200_coverage_regions_s1_L1$name, below_200_coverage_regions_s1_L2$name, 
-    below_200_coverage_regions_s1_L3$name, below_200_coverage_regions_s1_L4$name))
+    low_coverage_regions[[1]][["name"]],
+    low_coverage_regions[[2]][["name"]], 
+    low_coverage_regions[[3]][["name"]],
+    low_coverage_regions[[4]][["name"]],
+    low_coverage_regions[[5]][["name"]],
+    low_coverage_regions[[6]][["name"]], 
+    low_coverage_regions[[7]][["name"]],
+    low_coverage_regions[[8]][["name"]],
+    low_coverage_regions[[9]][["name"]],
+    low_coverage_regions[[10]][["name"]], 
+    low_coverage_regions[[11]][["name"]],
+    low_coverage_regions[[12]][["name"]],
+    low_coverage_regions[[13]][["name"]],
+    low_coverage_regions[[14]][["name"]], 
+    low_coverage_regions[[15]][["name"]],
+    low_coverage_regions[[16]][["name"]],
+    low_coverage_regions[[17]][["name"]],
+    low_coverage_regions[[18]][["name"]], 
+    low_coverage_regions[[19]][["name"]],
+    low_coverage_regions[[20]][["name"]],
+    low_coverage_regions[[21]][["name"]],
+    low_coverage_regions[[22]][["name"]],
+    low_coverage_regions[[23]][["name"]],
+    low_coverage_regions[[24]][["name"]], 
+    low_coverage_regions[[25]][["name"]],
+    low_coverage_regions[[26]][["name"]],
+    low_coverage_regions[[27]][["name"]],
+    low_coverage_regions[[28]][["name"]], 
+    low_coverage_regions[[29]][["name"]],
+    low_coverage_regions[[30]][["name"]],
+    low_coverage_regions[[31]][["name"]],
+    low_coverage_regions[[32]][["name"]],
+    low_coverage_regions[[33]][["name"]],
+    low_coverage_regions[[34]][["name"]]
+    ))
 
-write.table(common_zero_cov_primers, file = "~/Desktop/zero_coverage_amplicons")
+View(common_low_cov_primers)
+
+# Export low coverage regions found in all samples
+write.table(common_zero_cov_primers, file = "~/Desktop/common_low_cov_primers")
 
 # Extract percentage of target regions achieving various levels of coverage
 percentage_coverage_regions_s1 <- colMeans(percentage_coverage_regions_s1[,2:10])
