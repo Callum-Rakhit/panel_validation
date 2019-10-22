@@ -330,6 +330,10 @@ common_low_cov_primers <- Reduce(
   x = lapply(low_coverage_regions, '[[', 4)  # 4th element is a list of names of the low coverage amplicon regions
   )
 
+common_low_cov_primers<- as.data.frame(common_low_cov_primers)
+common_low_cov_primers <- common_low_cov_primers[!grepl("^chr", common_low_cov_primers$common_low_cov_primers),]
+View(common_low_cov_primers)
+
 # Extract percentage of target regions achieving various levels of coverage
 percentage_coverage_regions_s1 <- colMeans(percentage_coverage_regions_s1[,2:10])
 percentage_coverage_regions_s2 <- colMeans(percentage_coverage_regions_s2[,2:10])
