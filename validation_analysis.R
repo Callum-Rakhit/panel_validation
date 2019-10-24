@@ -12,7 +12,7 @@ GetPackages <- function(required.packages) {
 }
 
 GetPackages(c("ggplot2", "reshape2", "wesanderson", "tidyverse", "scales", "doParallel", 
-              "devtools", "dplyr", "gtable", "grid", "gridExtra", "data.table"))
+              "devtools", "dplyr", "gtable", "grid", "gridExtra", "data.table", "rlist"))
 
 # Developmental packages
 install_github("kassambara/easyGgplot2")  # Need devtools to use this function
@@ -63,7 +63,7 @@ known_VAFs$Exact_Location <- gsub(" ", "", x = known_VAFs$Exact_Location)
 # Filter the observations based on those found in the horizon controls 
 VAF <- list()
 
-for(sample.filename in names(variant_frequency_list)[33]){
+for(sample.filename in names(variant_frequency_list)){
   sample.name.inc.conc <- (gsub('_S.*', '', sample.filename))
   sample.name <- (gsub('_S.*', '', sample.filename))
   sample.name <- (gsub("18F1", "18F-1", sample.name))
@@ -283,7 +283,10 @@ output <- VAFPlot(VAF$HD200, "HD200", VAF$HD200$HD200)
 ggsave("~/Desktop/Rplot.pdf", output, width = 16*1, height = 9*1)
 
 # Plot 4b - Horizon control HD701
-output <- VAFPlot(VAF$HD701, "HD701", VAF$HD701$HD701)
+output <- VAFPlot(VAF$HD701_S10, "HD701_S10", VAF$HD701_S10$HD701)
+VAF$HD701_S10
+output
+list.search(variant_frequency_list[["HD701_S10_default_VAF_frequencies_bare"]], .[grepl("12:25398284",.)])
 ggsave("~/Desktop/Rplot.pdf", output, width = 16*1, height = 9*1)
 
 # Plot 4c - Horizon control HD798
@@ -292,7 +295,9 @@ ggsave("~/Desktop/Rplot.pdf", output, width = 16*1, height = 9*1)
 
 # Plot the 320x percentage plot
 output <- PercentageAt320(
-  percentages_totalreads_merged, percentages_totalreads_merged$`320x`, percentages_totalreads_merged$totalreads)
+  percentages_totalreads_merged, 
+  percentages_totalreads_merged$`320x`,
+  percentages_totalreads_merged$totalreads)
 
 ggsave("~/Desktop/Rplot.pdf", output, width = 16*1, height = 9*1)
 

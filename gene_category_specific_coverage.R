@@ -30,20 +30,41 @@ amplicon_coverage_melted$mean_coverage <- amplicon_coverage_average_per_run$mean
 CEBPA_amplicon_coverage_melted <- amplicon_coverage_melted[grep("^CEBPA", amplicon_coverage_melted$PRIMER),]
 
 Adult_Solid_Gene_List <- c(
-  "^BRAF",
-  "^BRCA1",
-  "^BRCA2",
-  "^CDKN2A",
-  "^EGFR",
-  "^HRAS",
-  "^KIT",
-  "^KRAS",
-  "^MET",
-  "^MLH1",
-  "^NRAS",
-  "^PDGFRA",
-  "^SMARCA4",
-  "^TP53"
+  "^BRAF", "^BRCA1", "^BRCA2", "^CDKN2A", "^EGFR", "^HRAS", "^KIT",
+  "^KRAS", "^MET", "^MLH1", "^NRAS", "^PDGFRA", "^SMARCA4", "^TP53")
+
+KRAS_Gene_List <- c(
+  "^KRAS")
+
+Neurological_Gene_List <- c("BRAF",
+                            "IDH1",
+                            "IDH2",
+                            "ATRX",
+                            "H3F3A",
+                            "HIST1H3B",
+                            "TERT",
+                            "EGFRvIII"
+                            "HIST2H3C"
+                            "MYC"
+                            "NF1"
+                            "MYCN"
+                            "C19MC"
+                            "YAP1"
+                            "MGMT"
+                            "PDGFRA"
+                            "PTEN"
+                            "HIST1H3C"
+                            "H3F3B"
+                            "VHL"
+                            "TP53"
+                            "MGMT"
+                            "TSC1"
+                            "TSC2"
+                            "FGFR1"
+                            "DICER1",
+                            "CDKN2A",
+                            "RB1",
+                            "TERT"
 )
 
 Adult_Solid_amplicon_coverage_melted <- amplicon_coverage_melted[(
@@ -83,27 +104,28 @@ RunCov.vs.AvCov <- function(dataframe, id, BARCODE_COUNT, mean_coverage){
     panel.background = element_blank())
 }
 
-Deviation.from.Av <- function(dataframe, PRIMER, BARCODE_COUNT, mean_coverage){
+Deviation.from.Av <- function(dataframe, PRIMER, BARCODE_COUNT, mean_coverage, Common_Gene_Name){
   ggplot(dataframe) +
-  geom_boxplot(aes(x = PRIMER, y = (BARCODE_COUNT - mean_coverage), color = PRIMER), coef = 6) +
-  scale_fill_manual(values = colour_palette) +
-  xlab("Sample ID") +
-  theme(
-    # Lengends to the top
-    legend.position = "none",
-    # Remove the y-axis
-    axis.title.y = element_blank(),
-    # Remove panel border
-    panel.border = element_blank(),
-    # Remove panel grid lines
-    panel.grid.major.x = element_blank(),
-    # axis.text.x = element_blank(),
-    axis.ticks.x = element_blank(),
-    # explicitly set the horizontal lines (or they will disappear too)
-    panel.grid.major.y = element_line(size = .25, color = "black"),
-    panel.grid.minor = element_blank(),
-    # Remove panel background
-    panel.background = element_blank())
+  geom_boxplot(aes(x = PRIMER, y = (BARCODE_COUNT - mean_coverage), color = Common_Gene_Name), coef = 6) +
+    # guides(color = guide_legend(reverse = T)) +
+    scale_fill_manual(values = colour_palette) +
+    xlab("Sample ID") +
+    theme(
+      # Lengends to the top
+      # legend.position = "none",
+      # Remove the y-axis
+      # axis.title.y = element_blank(),
+      # Remove panel border
+      panel.border = element_blank(),
+      # Remove panel grid lines
+      panel.grid.major.x = element_blank(),
+      # axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      # explicitly set the horizontal lines (or they will disappear too)
+      panel.grid.major.y = element_line(size = .25, color = "black"),
+      panel.grid.minor = element_blank(),
+      # Remove panel background
+      panel.background = element_blank())
 }
 
 # Create the plot
@@ -117,8 +139,12 @@ ggsave("~/Desktop/AS_1.pdf", output, width = 16*1.25, height = 9*1.25)
 output <- Deviation.from.Av(Adult_Solid_amplicon_coverage_melted, PRIMER, BARCODE_COUNT, mean_coverage)
 ggsave("~/Desktop/AS_2.pdf", output, width = 16*1.25, height = 9*1.25)
 
+Deviation.from.Av(Adult_Solid_amplicon_coverage_melted, PRIMER, BARCODE_COUNT, mean_coverage, Common_Gene_Name)
+
 Adult_Solid_amplicon_coverage_melted$diff <- (Adult_Solid_amplicon_coverage_melted$BARCODE_COUNT/Adult_Solid_amplicon_coverage_melted$mean_coverage)
+Adult_Solid_amplicon_coverage_melted$Common_Gene_Name <- (gsub('_.*', '', Adult_Solid_amplicon_coverage_melted$PRIMER))
 CEBPA_amplicon_coverage_melted$diff <- (CEBPA_amplicon_coverage_melted$BARCODE_COUNT/CEBPA_amplicon_coverage_melted$mean_coverage)
+
 
 boxplot(Adult_Solid_amplicon_coverage_melted$diff)
 mean(CEBPA_amplicon_coverage_melted$diff)
@@ -143,4 +169,7 @@ common_low_cov_primers <- Reduce(
 common_low_cov_primers<- as.data.frame(common_low_cov_primers)
 common_low_cov_primers <- common_low_cov_primers[!grepl("^chr", common_low_cov_primers$common_low_cov_primers),]
 View(common_low_cov_primers)
+
+Deviation.from.Av(KRAS_Gene_List, PRIMER, BARCODE_COUNT, mean_coverage, Common_Gene_Name)
+
 

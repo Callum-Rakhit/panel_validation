@@ -48,7 +48,7 @@ function aggregate_VAF {
   for y in $1/$i/$x/variants/*.VD.filtered.vcf.gz;
   do z=$(basename $y) && a=$(echo $z | cut -c1-8) &&
   mv $2/$a* $2/${i}_${x}_VAF_frequencies_verbose &&
-  bcftools query -f '%CHROM:%POS %AF\n' $2/${i}_${x}_VAF_frequencies_verbose > $2/${i}_${x}_VAF_frequencies_bare;
+  bcftools query -f '%CHROM:%POS %AF %DP\n' $2/${i}_${x}_VAF_frequencies_verbose > $2/${i}_${x}_VAF_frequencies_bare;
   done;
   done;
   done
