@@ -21,14 +21,21 @@ library(easyGgplot2)
 ##### Load relevant data #####
 
 # Amplicon/coverage/sample data
-amplicon_coverage_filenames <- Sys.glob(paths = "/mnt/shared_data/work/three_runs_together/*amplicon_coverage")
+amplicon_coverage_filenames <- Sys.glob(paths = "/mnt/shared_data/work/three_runs_together/*default_amplicon_coverage")
+amplicon_coverage_filenames <- amplicon_coverage_filenames[1:length(amplicon_coverage_filenames)-1]  # Remove last element in list (undetermined)
 amplicon_coverage_sampleIDs <- paste0(basename(amplicon_coverage_filenames))
 amplicon_coverage_list <- lapply(amplicon_coverage_filenames, function(i){read.table(file = i, header = T)})
 amplicon_coverage_melted <- do.call(rbind, amplicon_coverage_list)
 amplicon_coverage_melted$id <- factor(rep(amplicon_coverage_sampleIDs, each = sapply(amplicon_coverage_list, nrow)))
+rm(list = c("amplicon_coverage_filenames", "amplicon_coverage_sampleIDs", "amplicon_coverage_list"))
+
+ng_input_info <- read_delim(file = "/home/callumrakhit/panel_validation/ng_input_info", delim = "\t", col_names = F)
+colnames(ng_input_info) <- c("id", "ng_input")
+amplicon_coverage_melted <- merge(amplicon_coverage_melted, ng_input_info, by = "id")
 
 # ROI coverage percentage information
 coverage_percentages_filenames <- Sys.glob(paths = "/mnt/shared_data/work/three_runs_together/*coverage_percentages*")
+coverage_percentages_filenames <- coverage_percentages_filenames[1:length(coverage_percentages_filenames)-1]  # Remove last element in list (undetermined)
 coverage_percentage_sampleIDs <- paste0(basename(coverage_percentages_filenames))
 coverage_percentage_list <- lapply(coverage_percentages_filenames, function(i){read.table(file = i, header = T)})
 coverage_percentage_melted <- do.call(rbind, coverage_percentage_list)
@@ -48,13 +55,15 @@ percentages_totalreads_merged <- merge(coverage_percentage_melted, total_reads, 
 
 # Get the observed VAFs for the horizon controls
 variant_frequency_filenames <- Sys.glob(paths = "/mnt/shared_data/work/three_runs_together/*VAF_frequencies_bare")
+variant_frequency_filenames <- variant_frequency_filenames[1:length(variant_frequency_filenames)-1]  # Remove last element in list (undetermined)
 variant_frequency_list <- list()
 invisible(lapply(variant_frequency_filenames, function(i){read.table(file = i, header = F) %>%
     {. ->> variant_frequency_list[[paste0(basename(i))]]} }))
 variant_frequency_melted <- do.call(rbind, variant_frequency_list)
 variant_frequency_melted <- setDT(variant_frequency_melted, keep.rownames = T)[]
 variant_frequency_melted$rn <- gsub("_default.*", "", variant_frequency_melted$rn)
-colnames(variant_frequency_melted) <- c("sampleID", "location", "VAF")
+colnames(variant_frequency_melted) <- c("sampleID", "location", "VAF", "coverage")
+variant_frequency_list <- variant_frequency_list[]
 
 # Get the expected VAFs for the controls samples run
 known_VAFs <- read.csv("~/panel_validation/Horizon_Control_Locations_AF.csv")
@@ -62,7 +71,7 @@ known_VAFs$Exact_Location <- gsub(" ", "", x = known_VAFs$Exact_Location)
 
 # Filter the observations based on those found in the horizon controls 
 VAF <- list()
-
+names(variant_frequency_list)
 for(sample.filename in names(variant_frequency_list)){
   sample.name.inc.conc <- (gsub('_S.*', '', sample.filename))
   sample.name <- (gsub('_S.*', '', sample.filename))
@@ -93,7 +102,8 @@ for(sample.filename in names(variant_frequency_list)){
 
 ##### Pick colours #####
 
-colour_palette <- rep(x = wesanderson::wes_palettes$Darjeeling1, times = 10)
+colour_palette <- wesanderson::wes_palettes$Darjeeling1 
+colour_palette <- append(x = colour_palette, values = wesanderson::wes_palettes$Darjeeling2)
 
 ##### Generate the plotting functions #####
 
@@ -121,9 +131,9 @@ CoverageDepth <- function(dataframe, coverage, coverage.depth, sample){
 }
 
 # Plot distribution of barcode reads for all samples
-SampleCoverageDistrubtion <- function(dataframe, coverage, sample){
+SampleCoverageDistrubtion <- function(dataframe, coverage, sample, ng_input){
   ggplot(dataframe) +
-    geom_boxplot(aes(x = reorder(x = sample, X = coverage), y = coverage, fill = sample), 
+    geom_boxplot(aes(x = reorder(x = sample, X = coverage), y = coverage, fill = ng_input), 
                  outlier.shape = NA, notch = T) +
     ggtitle("Disribution of reads per amplicon for each sample\n") +
     # scale_fill_manual(values = colour_palette) +
@@ -136,7 +146,7 @@ SampleCoverageDistrubtion <- function(dataframe, coverage, sample){
           axis.title = element_text(size = 16),
           plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
           # Lengends to the top
-          legend.position = "none",
+          legend.position = "top",
           # Remove panel border
           panel.border = element_blank(),
           # Remove panel grid lines
@@ -147,7 +157,7 @@ SampleCoverageDistrubtion <- function(dataframe, coverage, sample){
           # Remove panel background
           panel.background = element_blank(),
           # Rotate the x-axis labels 90 degrees
-          axis.text.x = element_text(angle = 90, hjust = 0)
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
     )
 }
 
@@ -261,7 +271,8 @@ pdf("~/Desktop/Rplot.pdf", width = 16*1.5, height = 9*1.5)
 SampleCoverageDistrubtion(
   amplicon_coverage_melted,
   amplicon_coverage_melted$BARCODE_COUNT,
-  amplicon_coverage_melted$id)
+  amplicon_coverage_melted$id,
+  amplicon_coverage_melted$ng_input)
 
 graphics.off()
 

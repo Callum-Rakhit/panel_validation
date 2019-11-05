@@ -64,5 +64,4 @@ function make_plots {
   # rm *temp* && rm *verbose* && rm *metrics*
 }
 
-
-make_plots $SNAPPYWORK/analysis/20190727_183445/ $SNAPPYWORK/metrics_extraction_for_validation/
+make_plots $SNAPPYWORK/analysis/20191003_190447/ $SNAPPYWORK/metrics_extraction_for_validation/
