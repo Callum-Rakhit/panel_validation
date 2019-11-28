@@ -329,6 +329,8 @@ common_zero_cov_primers <- Reduce(
   x = lapply(zero_coverage_regions, '[[', 4)  # 4th element is a list of names of the low coverage amplicon regions
   )
 
+write.csv(x = common_zero_cov_primers, file = "~/Desktop/zero_coverage_amplicons.csv")
+
 ##### Identify common low coverage primers #####
 
 # Read in low coverage (<200) regions from snappy
@@ -345,6 +347,8 @@ common_low_cov_primers <- Reduce(
   f = intersect, 
   x = lapply(low_coverage_regions, '[[', 4)  # 4th element is a list of names of the low coverage amplicon regions
   )
+
+write.csv(x = common_low_cov_primers, file = "~/Desktop/low_coverage_amplicons.csv")
 
 common_low_cov_primers<- as.data.frame(common_low_cov_primers)
 common_low_cov_primers <- common_low_cov_primers[!grepl("^chr", common_low_cov_primers$common_low_cov_primers),]
