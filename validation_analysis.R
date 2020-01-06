@@ -21,6 +21,7 @@ library(easyGgplot2)
 ##### Load relevant data #####
 
 # Amplicon/coverage/sample data
+amplicon_coverage_filenames <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation_4_samples/*10M_resample_amplicon_coverage")
 amplicon_coverage_filenames <- Sys.glob(paths = "/mnt/shared_data/work/three_runs_together/*default_amplicon_coverage")
 amplicon_coverage_filenames <- amplicon_coverage_filenames[1:length(amplicon_coverage_filenames)-1]  # Remove last element in list (undetermined)
 amplicon_coverage_sampleIDs <- paste0(basename(amplicon_coverage_filenames))
@@ -168,6 +169,7 @@ AmpliconCoverageDistrubtion <- function(dataframe, coverage, amplicon, sample){
     scale_fill_manual(values = colour_palette) +
     scale_y_log10(limits = c(1, 10000)) +
     xlab(sample) +
+    geom_hline(yintercept=500) +
     theme(
       # Lengends to the top
       legend.position = "none",
@@ -286,6 +288,8 @@ lapply(unique(amplicon_coverage_melted$id), function(i) {
 output <- grid.arrange(grobs = p, top = textGrob(
   "Vertical read depth for each amplicon", vjust = 1, gp = gpar(fontface = "bold", cex = 1.5)),
   left = textGrob("Barcode-adjusted read depth", rot = 90, vjust = 1))
+
+output
 
 ggsave("~/Desktop/Rplot.pdf", output, width = 16*1.25, height = 9*1.25)
 
