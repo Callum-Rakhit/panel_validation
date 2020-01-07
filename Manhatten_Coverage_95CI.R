@@ -10,7 +10,7 @@ GetPackages <- function(required.packages) {
   suppressMessages(lapply(required.packages, require, character.only = T))
 }
 
-GetPackages(c("lattice", "devtools"))
+GetPackages(c("ggplot2", "nlme", "devtools", "tidyverse", "reshape2", "wesanderson"))
 
 # Amplicon/coverage/sample data
 amplicon_coverage_filenames <- Sys.glob(paths = "/mnt/shared_data/work/three_runs_together/*default_amplicon_coverage")
@@ -31,234 +31,13 @@ colnames(amplicon_coverage_melted) <- c("PRIMER", "COVERAGE", "ID")
 
 manhattan_data <- merge(x = amplicon_coverage_melted, y = bed_file, by = "PRIMER")
 
-manhattan.plot <- function(chr, pos, pvalue, sig.level = NA, annotate = NULL, ann.default = list(), 
-                           should.thin = T, thin.pos.places = 2, thin.logp.places = 2, xlab = "Chromosome",
-                           # ylab = expression(-log[10](p-value)),
-                           # ylab = expression(p-value),
-                           ylab = expression(Coverage), 
-                           # col = c("gray", "darkgray"), 
-                           col = c("red", "blue"),
-                           panel.extra = NULL, pch = 20, cex = 0.8, ...) {
-  
-  if (length(chr) == 0) stop("chromosome vector is empty")
-  if (length(pos) == 0) stop("position vector is empty")
-  if (length(pvalue) == 0) stop("pvalue vector is empty")
-  
-  # Make sure we have an ordered factor
-  if(!is.ordered(chr)) {
-    chr <- ordered(chr)
-  } else {
-    chr <- chr[, drop = T]
-  }
-  
-  # Make sure positions are in kbp
-  if (any(pos > 1e6)) pos <- pos/1e6;
-  
-  # Calculate absolute genomic position from relative chromosomal positions
-  posmin <- tapply(pos, chr, min);
-  posmax <- tapply(pos, chr, max);
-  posshift <- head(c(0, cumsum(posmax)), -1);
-  names(posshift) <- levels(chr)
-  genpos <- pos + posshift[chr];
-  getGenPos <- function(cchr, cpos) {
-    p <- posshift[as.character(cchr)] + cpos
-    return(p)
-  }
-  
-  # Parse annotations
-  grp <- NULL
-  ann.settings <- list()
-  label.default <- list(x = "peak", y = "peak", adj = NULL, pos = 3, offset = 0.5, 
-                      col = NULL, fontface = NULL, fontsize = NULL, show = F)
-  parse.label <- function(rawval, groupname) {
-    r <- list(text=groupname)
-    if(is.logical(rawval)) {
-      if(!rawval) {r$show <- F}
-    } else if (is.character(rawval) || is.expression(rawval)) {
-      if(nchar(rawval) >= 1) {
-        r$text <- rawval
-      }
-    } else if (is.list(rawval)) {
-      r <- modifyList(r, rawval)
-    }
-    return(r)
-  }
-  
-  if(!is.null(annotate)) {
-    if (is.list(annotate)) {
-      grp <- annotate[[1]]
-    } else {
-      grp <- annotate
-    } 
-    if (!is.factor(grp)) {
-      grp <- factor(grp)
-    }
-  } else {
-    grp <- factor(rep(1, times = length(pvalue)))
-  }
-  
-  ann.settings<-vector("list", length(levels(grp)))
-  ann.settings[[1]] <- list(pch = pch, col = col, cex = cex, fill = col, label = label.default)
-  
-  if (length(ann.settings) > 1) { 
-    lcols <- trellis.par.get("superpose.symbol")$col 
-    lfills <- trellis.par.get("superpose.symbol")$fill
-    for(i in 2:length(levels(grp))) {
-      ann.settings[[i]]<-list(pch = pch, 
-                              col = lcols[(i-2) %% length(lcols) + 1 ], 
-                              fill = lfills[(i-2) %% length(lfills) + 1 ], 
-                              cex = cex, label = label.default);
-      ann.settings[[i]]$label$show <- T
-    }
-    names(ann.settings) <- levels(grp)
-  }
-  for(i in 1:length(ann.settings)) {
-    if (i>1) {ann.settings[[i]] <- modifyList(ann.settings[[i]], ann.default)}
-    ann.settings[[i]]$label <- modifyList(ann.settings[[i]]$label, parse.label(ann.settings[[i]]$label, levels(grp)[i]))
-  }
-  if(is.list(annotate) && length(annotate) > 1) {
-    user.cols <- 2:length(annotate)
-    ann.cols <- c()
-    if(!is.null(names(annotate[-1])) && all(names(annotate[-1]) != "")) {
-      ann.cols<-match(names(annotate)[-1], names(ann.settings))
-    } else {
-      ann.cols <- user.cols - 1
-    }
-    for(i in seq_along(user.cols)) {
-      if(!is.null(annotate[[user.cols[i]]]$label)) {
-        annotate[[user.cols[i]]]$label <- parse.label(annotate[[user.cols[i]]]$label, levels(grp)[ann.cols[i]])
-      }
-      ann.settings[[ann.cols[i]]] <- modifyList(ann.settings[[ann.cols[i]]], annotate[[user.cols[i]]])
-    }
-  }
-  rm(annotate)
-  
-  # Reduce number of points plotted
-  if(should.thin) {
-    thinned <- unique(data.frame(
-      # logp=round(-log10(pvalue),thin.logp.places),
-      logp = round(pvalue, thin.logp.places),
-      pos = round(genpos, thin.pos.places), 
-      chr = chr,
-      grp = grp)
-    )
-    logp <- thinned$logp
-    genpos <- thinned$pos
-    chr <- thinned$chr
-    grp <- thinned$grp
-    rm(thinned)
-  } else {
-    # logp <- -log10(pvalue)
-    logp <- pvalue
-  }
-  rm(pos, pvalue)
-  gc()
-  
-  # Custom axis to print chromosome names
-  axis.chr <- function(side, ...) {
-    if(side == "bottom") {
-      panel.axis(side = side, outside = T,
-                 at = ((posmax+posmin)/2 + posshift),
-                 labels=levels(chr), 
-                 ticks = F, rot = 0,
-                 check.overlap = F
-      )
-    } else if (side == "top" || side == "right") {
-      panel.axis(side = side, draw.labels = F, ticks = F);
-    }
-    else {
-      axis.default(side = side, ...);
-    }
-  }
-  
-  # Make sure the y-lim covers the range (plus a bit more to look nice)
-  prepanel.chr <- function(x, y , ...) { 
-    A <- list();
-    # maxy<-ceiling(max(y, ifelse(!is.na(sig.level), -log10(sig.level), 0)))+.5;
-    maxy <- ceiling(max(y, ifelse(!is.na(sig.level), sig.level, 0))) + 0.5;
-    A$ylim = c(0, maxy);
-    A;
-  }
-  
-  # xyplot(logp ~ genpos, chr = chr, groups = grp,
-  #        axis = axis.chr, ann.settings = ann.settings,
-  #        prepanel = prepanel.chr, scales = list(axs = "i"),
-  #        panel = function(x, y, ..., getgenpos));
-  # 
-  # ggplot(logp ~ genpos)
-  
-  xyplot(logp ~ genpos, chr = chr, groups = grp,
-         axis = axis.chr, ann.settings = ann.settings,
-         prepanel = prepanel.chr, scales = list(axs="i"),
-         panel = function(x, y, ..., getgenpos) {
-           if(!is.na(sig.level)) {
-             # Add significance line (if requested)
-             # panel.abline(h=-log10(sig.level), lty=2);
-             panel.abline(h = sig.level, lty = 2);
-           }
-           panel.superpose(x, y, ..., getgenpos = getgenpos);
-           if(!is.null(panel.extra)) {
-             panel.extra(x, y, getgenpos, ...)
-           }
-         },
-         panel.groups = function(x, y, ..., subscripts, group.number) {
-           A <- list(...)
-
-           # Allow for different annotation settings
-           gs <- ann.settings[[group.number]]
-           A$col.symbol <- gs$col[(as.numeric(chr[subscripts])-1) %% length(gs$col) + 1]
-           A$cex <- gs$cex[(as.numeric(chr[subscripts])-1) %% length(gs$cex) + 1]
-           A$pch <- gs$pch[(as.numeric(chr[subscripts])-1) %% length(gs$pch) + 1]
-           A$fill <- gs$fill[(as.numeric(chr[subscripts])-1) %% length(gs$fill) + 1]
-           A$x <- x
-           A$y <- y
-           do.call("panel.xyplot", A)
-
-           # Draw labels (if requested)
-           if(gs$label$show) {
-             gt <- gs$label
-             names(gt)[which(names(gt) == "text")] <- "labels"
-             gt$show <- NULL
-             if(is.character(gt$x) | is.character(gt$y)) {
-               peak = which.max(y)
-               center = mean(range(x))
-               if (is.character(gt$x)) {
-                 if(gt$x == "peak") {gt$x <- x[peak]}
-                 if(gt$x == "center") {gt$x <- center}
-               }
-               if (is.character(gt$y)) {
-                 if(gt$y == "peak") {gt$y <- y[peak]}
-               }
-             }
-             if(is.list(gt$x)) {
-               gt$x <- A$getgenpos(gt$x[[1]], gt$x[[2]])
-             }
-             do.call("panel.text", gt)
-           }
-         },
-         xlab = xlab, ylab = ylab,
-         panel.extra = panel.extra, getgenpos = getGenPos, ...
-  );
-}
-
 manhattan.plot(as.numeric(manhattan_data$CHR), manhattan_data$START, manhattan_data$COVERAGE)
 
 sort(unique(as.numeric(manhattan_data$CHR)))
 class(manhattan_data$CHR)
 
-require(ggplot2)
-require(nlme)
-
-sample$BP <- factor(manhattan_data$START,
-                    levels = manhattan_data[ !duplicated(manhattan_data[,"START"]), "START"][order(
-                      manhattan_data[!duplicated(manhattan_data[ , "START"]),  "CHR"] )]
-)
-
-logp ~ genpos
-
-ggplot(manhattan_data, aes(START, COVERA GE)) + geom_point() + geom_smooth()
-
-ggplot(manhattan_data, aes(START, COVERAGE)) + geom_smooth()
+sample$BP <- factor(manhattan_data$START, levels = manhattan_data[ !duplicated(
+  manhattan_data[,"START"]), "START"][order(manhattan_data[!duplicated(manhattan_data[ , "START"]),  "CHR"] )])
 
 #######################################################################################################################
 
@@ -330,6 +109,75 @@ manhplot <- ggplot(subset_manhattan,
 
 print(manhplot)
 
+##### Proportionality plot #####
+
+bed_file <- read.table(file = "/mnt/shared_data/snappy/snappy/tas/ccp1/ccp1_primer.bed", header = F, )
+colnames(bed_file) <- c("CHR", "START", "STOP", "PRIMER", "SCORE", "STRAND")
+colnames(example) <- c("PRIMER", "blah", "bleh", "divergance")
+example <- merge(x = example, y = bed_file, by = "PRIMER")
+sample$BP <- factor(manhattan_data$START, levels = manhattan_data[ !duplicated(
+  manhattan_data[,"START"]), "START"][order(manhattan_data[!duplicated(manhattan_data[ , "START"]),  "CHR"] )])
+
+
+
+
+manhattan_data[manhattan_data$ID == "18F-199_S1_default_amplicon_coverage",]
+
+
+
+amplicon_all_proportions <- as.data.frame(amplicon_coverage_melted$PRIMER)
+
+for(i in sort(unique(amplicon_coverage_melted$id))){
+  df <- amplicon_coverage_melted[(amplicon_coverage_melted$id == i), ]
+  # options(scipen = 999)
+  df$i <- df$BARCODE_COUNT/sum(df$BARCODE_COUNT)
+  amplicon_all_proportions <- cbind(amplicon_all_proportions, df$i)
+}
+
+amplicon_all_proportions_melted <- melt(amplicon_all_proportions)
+
+class(amplicon_all_proportions_melted$`amplicon_coverage_melted$PRIMER`)
+
+options(scipen = 999)
+
+amplicon_median_proportion <- amplicon_all_proportions_melted %>% 
+  group_by(amplicon_all_proportions_melted$`amplicon_coverage_melted$PRIMER`) %>% 
+  summarise(average = median(value))
+
+example <- cbind(amplicon_median_proportion, df$i)
+example$divergance <- example$average - example$`df$i`
+colnames(example) <- c("PRIMER", "blah", "bleh", "divergance")
+
+
+
+
+
+
+
+# Single_Sample_Proportional_Read_Depth
+# 13.333 inch by 7.5
+
+example$divergance2
+
+ifelse(example$divergance>0.025, as.character(example$primer), '')
+  
+ggplot(example, aes(x = primer, y = divergance, color = divergance, label = primer)) +
+  geom_point() +
+  labs(x = "Primer", y = "Proportional increase/decrease in barcoded reads") + 
+  theme_minimal() +
+  geom_text(aes(label = ifelse(divergance>0.025, as.character(primer), '')), hjust = 0, vjust = 0) +
+  scale_y_continuous(limits = c(-0.001, 0.004)) +
+  scale_color_gradient(low = "blue", high = "red") +
+  # scale_color_manual(breaks = c("-0.001", "0", "0.001"), values = wes_palettes$Darjeeling1) +
+  # geom_tile("The proportion of molecularly barcoded reads for each primer in a single sample vs the median expected values") +
+  theme(legend.position = "none", 
+        panel.border = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        axis.text.x = element_text(angle = 45, size = 0.01, vjust = 0.5)
+  )
+
+ggf
 
 
 
@@ -355,8 +203,45 @@ print(manhplot)
 
 
 
+# Make proportionality Manhatten
 
+example$CHR <- as.numeric(example$CHR)
+example <- example[order(example$CHR),]
+example$CHR <- ifelse(example$CHR == 23, "X", example$CHR)
 
+nCHR <- length(unique(example$CHR))
+example$BPcum <- NA
+s <- 0
+nbp <- c()
+
+for (i in unique(example$CHR)){
+  nbp[i] <- max(example[example$CHR == i,]$START)
+  example[example$CHR == i, "BPcum"] <- example[example$CHR == i, "START"] + s
+  s <- s + nbp[i]
+}
+
+axis.set <- example %>% 
+  group_by(CHR) %>% 
+  summarize(center = (max(BPcum) + min(BPcum)) / 2)
+# ylim <- max(example$divergance) + 2 
+
+ggplot(example, aes(x = example$BPcum, y = example$divergance, color = as.factor(example$CHR), label = example$PRIMER)) +
+  geom_point(size = 2) +
+  scale_x_continuous(label = axis.set$CHR, breaks = axis.set$center) +
+  scale_y_continuous(limits = c(-0.0005, 0.004)) +
+  scale_color_manual(values = rep(wes_palettes$Darjeeling1, 5)) +
+  labs(x = "Chromsome", y = "Proportional increase/decrease in barcoded reads") + 
+  geom_text(aes(label = ifelse(divergance > 0.00025, as.character(PRIMER), '')), hjust = -0.05, vjust = 0) +
+  theme_minimal() +
+  ggtitle("The proportion of molecularly barcoded reads for each primer in a single sample vs the median expected values") +
+  theme(legend.position = "none",
+        panel.border = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        axis.text.x = element_text(angle = 0, size = 8, vjust = 0.5)
+  )
+
+sss
 
 
 
