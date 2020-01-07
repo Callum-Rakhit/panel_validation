@@ -56,6 +56,7 @@ percentages_totalreads_merged <- merge(coverage_percentage_melted, total_reads, 
 
 # Get the observed VAFs for the horizon controls
 variant_frequency_filenames <- Sys.glob(paths = "/mnt/shared_data/work/three_runs_together/*VAF_frequencies_bare")
+variant_frequency_filenames <- Sys.glob(paths = "/mnt/shared_data/work/metrics_extraction_for_validation_4_samples/18F-199_S1_default_VAF_frequencies_bare")
 variant_frequency_filenames <- variant_frequency_filenames[1:length(variant_frequency_filenames)-1]  # Remove last element in list (undetermined)
 variant_frequency_list <- list()
 invisible(lapply(variant_frequency_filenames, function(i){read.table(file = i, header = F) %>%
