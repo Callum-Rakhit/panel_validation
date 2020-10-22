@@ -18,3 +18,6 @@ for i in *$FILENAMESUFFIX1; do mv "$i" "${i%_R1.fastq.gz}"; done
 
 # Place the relevant R2 files in the relevant directories
 for i in *$FILENAMESUFFIX2; do mv "$i" "${i%_R2.fastq.gz}"; done
+
+# for x in ./*_R1_001.fastq.gz; do mkdir "${x%_R*}" && mv "$x" "${x%_R*}"; done
+# for i in *_R2_001.fastq.gz; do mv "$i" "${i%_R2_001.fastq.gz}"; done
