@@ -7,9 +7,6 @@ FILENAMESUFFIX2="_R2.fastq.gz"
 for i in *R1_001.fastq.gz; do cat $i >> "${i%_L00**}_R1_001.fastq.gz"; done
 for i in *R2_001.fastq.gz; do cat $i >> "${i%_L00**}_R2_001.fastq.gz"; done
 
-# Make files executable/owned by all
-chmod 777 *
-
 # Make a directory for the sample
 for i in *$FILENAMESUFFIX1; do mkdir "${i%_R1_001.fastq.gz}"; done
 
