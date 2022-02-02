@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 LOCATION=$1  # Specify location as first argument
-FILENAMESUFFIX1="_R1.fastq.gz"
-FILENAMESUFFIX2="_R2.fastq.gz"
+FILENAMESUFFIX1="_R1_001.fastq.gz"
+FILENAMESUFFIX2="_R2_001.fastq.gz"
 
 # list unique sample names alongside R1/R2 status
 for i in *R1_001.fastq.gz; do cat $i >> "${i%_L00**}_R1_001.fastq.gz"; done
